@@ -13,7 +13,7 @@
 
 ## URLs
 - **Local (sandbox)**: http://localhost:3000 (PM2로 구동)
-- **Production**: https://phytolab-ai-agent.pages.dev (Cloudflare Pages, 희정님 개인 Cloudflare 계정)
+- **Production**: https://phytolab-app.pages.dev (Cloudflare Pages, snupfm@gmail.com 계정, 프로젝트명 `phytolab-app`)
 - **API**: `GET /api/agents/step1/stream` — Step 1 실시간 Multi-Agent 논의 SSE 스트림 (event: `turn`, `done`)
 - **API**: `GET /api/agents/step3/stream` — Step 3 실시간 Multi-Agent 논의 SSE 스트림 (경쟁 분석 9턴 + 컨셉·POD 도출 6턴 = 15턴)
 
@@ -28,7 +28,7 @@
   - `personas.ts` — 5개 Agent(CLIO·RENA·MARA·FINN·REGA)의 서버사이드 시스템 프롬프트 페르소나 정의
   - `step1_plan.ts` — `STEP1_FACTS`(고정 근거 데이터 + "추정치" 라벨링 규칙) + `STEP1_TURN_PLAN`(9턴 순서: 발언자·근거·패널 섹션 reveal 매핑을 서버가 결정, 발언 문장만 LLM이 실시간 생성)
   - `step3_plan.ts` — `STEP3_FACTS`(경쟁 SKU 5개 프로필 + **네이버 카페 실측 LDA 토픽모델링 결과** 근거 블록) + `STEP3_TURN_PLAN`(15턴: 경쟁 벤치마킹 9턴 + 컨셉 도출·POD 발굴 6턴, 동일한 서버 고정 플랜 + LLM 실시간 발언 패턴)
-  - `llm.ts` — GenSpark LLM Proxy(OpenAI 호환, `gpt-5-mini` + `reasoning_effort: minimal`) 호출 클라이언트, 12초 타임아웃
+  - `llm.ts` — NVIDIA NIM(OpenAI 호환, `meta/llama-3.1-8b-instruct`) 호출 클라이언트, 12초 타임아웃
   - `live_discussion.ts` — `createDiscussionRoute()` 팩토리로 Step1/Step3 등 여러 스텝의 SSE 라우트를 공통 로직으로 생성. 턴별 LLM 호출 실패 시 고정 문구(`fallbackMsg`)로 자동 폴백해 발표 중단 방지
   - `routes.ts` — `/api/agents/step1/stream`, `/api/agents/step3/stream` 등 라우트 등록
   - `public/static/js/live_agent_context.js` — `AgentStreamProvider`(SSE 구독) / `useAgentStream` / `RevealSection`(가운데 패널 섹션을 Agent 발언 진행에 맞춰 순차 노출)
@@ -38,7 +38,7 @@
   - 모델링: `scikit-learn`의 `CountVectorizer` + `LatentDirichletAllocation`(3개 토픽)으로 실제 LDA 실행 → 토픽별 top 12 키워드·가중치 산출
   - 결과 반영: 산출된 토픽/키워드를 `step3_plan.ts`(`STEP3_FACTS`)와 `step3_analysis.jsx`(`concept_pod` 섹션 워드클라우드)에 정적 데이터로 직접 내장. 크롤링·LDA 스크립트 원본은 `/home/user/webapp_research/naver_crawl/`(웹앱 배포 범위 밖의 리서치 스크래치 디렉토리)에 보관
   - **B안 업그레이드 경로(추후)**: Cloudflare Workers는 Python 실행·장시간 백그라운드 작업이 불가하므로, 사용자가 임의 키워드를 입력해 실시간 크롤링+LDA를 원할 경우 Cloudflare Queues + 외부 상시 서버(크롤링·LDA 워커) + D1/KV(결과 캐싱) 조합의 비동기 파이프라인으로 교체 가능. 현재 구조(정적 데이터 + `SOURCES.community_lda` 출처 태그)는 이 교체를 염두에 두고 설계됨
-- **환경변수** (`.dev.vars`, git 미포함): `OPENAI_API_KEY`(GenSpark LLM Proxy 토큰), `OPENAI_BASE_URL`
+- **환경변수** (`.dev.vars`, git 미포함): `OPENAI_API_KEY`(NVIDIA NIM API 키, build.nvidia.com에서 발급), `OPENAI_BASE_URL`(`https://integrate.api.nvidia.com/v1`)
 - **Storage**: 서버 DB 없음. 브리프 선택값·확정 브리프·현재 워크플로우 스텝은 브라우저 `localStorage`에 저장 (`phytolab-brief`, `phytolab-brief-confirmed`, `phytolab-launched`, `phytolab-step`). Step 1 Agent 논의는 세션마다 실시간 생성되며 별도 저장하지 않음.
 - **Rendering**: Hono가 정적 HTML 셸을 서빙하고, React 18 + Babel Standalone(in-browser JSX 컴파일)으로 클라이언트에서 전체 UI를 렌더링합니다. 별도 빌드 파이프라인 없이 디자인 레퍼런스의 JSX/CSS를 최대한 그대로 재사용해 픽셀 단위 충실도를 유지했습니다.
 
@@ -74,8 +74,8 @@
 9. 커뮤니티 리뷰 코퍼스 확장(중복 문서 제거, 표본 수 n=12 → 수십~수백 건으로 확대)해 LDA 토픽의 통계적 안정성 개선.
 
 ## Deployment
-- **Platform**: Cloudflare Pages (Hono 기반), 프로젝트명 `phytolab-ai-agent`
-- **Status**: ✅ 배포 완료 (희정님 개인 Cloudflare 계정, BYOK 방식)
-- **Tech Stack**: Hono (정적 HTML 셸 서빙 + SSE API) + React 18 (in-browser Babel Standalone) + 순수 CSS(oklch 디자인 토큰) + GenSpark LLM Proxy(gpt-5-mini)
-- **환경변수**: `OPENAI_API_KEY` / `OPENAI_BASE_URL`을 `wrangler pages secret put`으로 프로덕션에 등록 완료 (로컬은 `.dev.vars` 사용, git 미포함)
+- **Platform**: Cloudflare Pages (Hono 기반), 프로젝트명 `phytolab-app`
+- **Status**: ✅ 배포 완료 (snupfm@gmail.com Cloudflare 계정, 프로젝트명 `phytolab-app`, BYOK 방식)
+- **Tech Stack**: Hono (정적 HTML 셸 서빙 + SSE API) + React 18 (in-browser Babel Standalone) + 순수 CSS(oklch 디자인 토큰) + NVIDIA NIM(meta/llama-3.1-8b-instruct)
+- **환경변수**: `OPENAI_API_KEY`(NVIDIA NIM 키) / `OPENAI_BASE_URL`(`https://integrate.api.nvidia.com/v1`)을 `wrangler pages secret put`으로 프로덕션에 등록 (로컬은 `.dev.vars` 사용, git 미포함)
 - **Last Updated**: 2026-07-14 (STAGE 03 컨셉 도출 & POD 발굴 확장, 네이버 카페 실측 LDA 토픽모델링 반영)
