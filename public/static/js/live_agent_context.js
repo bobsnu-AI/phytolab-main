@@ -77,7 +77,9 @@
       });
 
       es.onerror = () => {
-        setStatus((prev) => (prev === "done" ? prev : "error"));
+        // "done" 이벤트 수신 후 서버 연결 종료 시에도 onerror가 불림 → done 유지
+        // "streaming" 상태 (데이터를 이미 받는 중) 에서 끊기면 완료로 간주 (일부 환경에서 정상 종료 패턴)
+        setStatus((prev) => (prev === "done" || prev === "streaming" ? "done" : "error"));
         es.close();
       };
 
