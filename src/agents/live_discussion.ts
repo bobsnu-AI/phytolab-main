@@ -47,6 +47,31 @@ ${JSON.stringify(picked)}
 - 1~2문장, 한국어, 존댓말. 이모지 금지(REGA의 ⚠ 표시만 예외).`.trim();
 }
 
+// dataset이 있을 때 guidance를 dataset 컨텍스트 기반으로 동적 재작성
+// guidance 원문의 "당뇨", "GLUCARE-M" 등 고정 키워드 대신 실제 제품/건강이슈를 기반으로 발언하도록 지시
+function buildDynamicGuidance(guidance: string, dataset: any): string {
+  const product = dataset?.product;
+  if (!product) return guidance;
+
+  const codename = product.codename || "이 제품";
+  const tagline = product.tagline || "";
+  const target = product.target || "";
+  const category = product.subcategory || product.category || "";
+
+  // guidance에서 고정 제품명/카테고리 키워드를 실제 데이터셋 값으로 치환
+  let dg = guidance
+    .replace(/GLUCARE-M/g, codename)
+    .replace(/당뇨환자용/g, category || target)
+    .replace(/당뇨 유병률|당뇨병 유병률/g, "해당 건강이슈 유병률·타깃 인구")
+    .replace(/당뇨환자/g, target || "타깃 수요층")
+    .replace(/2형 당뇨/g, target || "타깃 수요층")
+    .replace(/혈당|혈당 관리/g, product.positioningClaim || "핵심 기능성")
+    .replace(/이소말툴로스|MUFA/g, product.positioningSpec || "핵심 원료·스펙");
+
+  // guidance 앞에 "아래 FACTS의 실제 제품 데이터를 기준으로" 지시 prefix 추가
+  return `[중요: 아래 FACTS의 실제 제품(${codename}, ${tagline})과 해당 건강이슈·시장 데이터를 기준으로 발언할 것. 당뇨·GLUCARE-M 등 다른 제품 컨텍스트는 무시할 것.]\n${dg}`;
+}
+
 /**
  * @param path         SSE 엔드포인트 경로 (예: "/api/agents/step2/stream")
  * @param staticIntro  데이터셋이 없을 때(정적 프리셋 경로) 사용할 도입부 문장
@@ -96,6 +121,11 @@ ${facts}`;
         let msg: string;
         let source: "live" | "fallback" = "live";
 
+        // dataset이 있을 때: guidance를 dataset 기반으로 동적 재작성 (당뇨/GLUCARE-M 고정 키워드 제거)
+        const effectiveGuidance = dataset && dynamic
+          ? buildDynamicGuidance(turn.guidance, dataset)
+          : turn.guidance;
+
         try {
           const historyText = transcript.length
             ? transcript.map((t) => `${AGENT_PERSONAS[t.agent].name}: ${t.msg}`).join("\n")
@@ -105,14 +135,22 @@ ${facts}`;
             { role: "system", content: buildSystemPrompt(turn.agent, productIntro, facts) },
             {
               role: "user",
-              content: `지금까지의 팀 대화:\n${historyText}\n\n이번 턴 지시: ${turn.guidance}\n\n규칙: 정확히 1~2문장(60자 내외/문장). 직전 발언들에서 이미 나온 숫자·문장을 다시 요약하거나 반복하지 말고, 이번 지시에 해당하는 새 정보만 말할 것. 인사말·이모지·따옴표 없이 발언 내용만 출력하세요.`,
+              content: `지금까지의 팀 대화:\n${historyText}\n\n이번 턴 지시: ${effectiveGuidance}\n\n규칙: 정확히 1~2문장(60자 내외/문장). 직전 발언들에서 이미 나온 숫자·문장을 다시 요약하거나 반복하지 말고, 이번 지시에 해당하는 새 정보만 말할 것. 인사말·이모지·따옴표 없이 발언 내용만 출력하세요.`,
             },
           ];
 
           msg = await callAgentLlm(c.env, messages);
           if (!msg) throw new Error("empty response");
         } catch (err) {
-          msg = turn.fallbackMsg;
+          // fallbackMsg도 dataset이 있으면 제품명 치환
+          if (dataset?.product?.codename) {
+            msg = turn.fallbackMsg
+              .replace(/GLUCARE-M/g, dataset.product.codename)
+              .replace(/당뇨환자용/g, dataset.product.subcategory || dataset.product.category || "")
+              .replace(/당뇨환자/g, dataset.product.target || "타깃 수요층");
+          } else {
+            msg = turn.fallbackMsg;
+          }
           source = "fallback";
         }
 
