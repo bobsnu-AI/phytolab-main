@@ -4,6 +4,7 @@
 // 실패 시 섹션별로 안전한 기본값(FALLBACK_*)으로 대체해 화면이 깨지지 않도록 한다.
 import { callAgentLlm, type LlmEnv } from "./llm";
 import { label } from "./brief_recommend";
+import { fetchConsumerInsights, type NaverEnv } from "./consumer_insights";
 
 export interface ConfirmedBrief {
   category?: string;
@@ -161,11 +162,23 @@ export interface GeneratedDataset {
   generated: true;
 }
 
-export async function generateProductDataset(env: LlmEnv, brief: ConfirmedBrief): Promise<GeneratedDataset> {
-  const [a, b, c] = await Promise.all([
+// 네이버 API 환경변수를 포함한 확장 env 타입
+export type DatasetEnv = LlmEnv & Partial<NaverEnv>;
+
+export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBrief): Promise<GeneratedDataset> {
+  // 네이버 API 키가 있으면 실제 소비자 인사이트 병렬 수집
+  const naverEnv: NaverEnv | null =
+    env.NAVER_CLIENT_ID && env.NAVER_CLIENT_SECRET
+      ? { NAVER_CLIENT_ID: env.NAVER_CLIENT_ID, NAVER_CLIENT_SECRET: env.NAVER_CLIENT_SECRET }
+      : null;
+
+  const [a, b, c, naverInsights] = await Promise.all([
     generatePartA(env, brief).catch(() => ({})),
     generatePartB(env, brief).catch(() => ({})),
     generatePartC(env, brief).catch(() => ({})),
+    naverEnv
+      ? fetchConsumerInsights(naverEnv, env, brief.condition).catch(() => null)
+      : Promise.resolve(null),
   ]);
 
   const ingredients = Array.isArray(c.formula?.ingredients) && c.formula.ingredients.length ? c.formula.ingredients : FALLBACK_INGREDIENTS;
@@ -191,8 +204,26 @@ export async function generateProductDataset(env: LlmEnv, brief: ConfirmedBrief)
     product: { ...FALLBACK_PRODUCT, ...a.product },
     market: { ...FALLBACK_MARKET, ...a.market },
     competitors: Array.isArray(a.competitors) && a.competitors.length ? a.competitors : FALLBACK_COMPETITORS,
-    reviews: a.reviews?.positive && a.reviews?.negative ? a.reviews : FALLBACK_REVIEWS,
-    concept: a.concept?.topics ? { sourceKey: "ai_generated", sourceLabel: "AI 생성 · 미검증", ...a.concept } : FALLBACK_CONCEPT,
+    // 네이버 실시간 데이터 우선 적용, 없으면 LLM 생성, 그것도 없으면 fallback
+    reviews: naverInsights?.reviews ?? (a.reviews?.positive && a.reviews?.negative ? a.reviews : FALLBACK_REVIEWS),
+    concept: naverInsights
+      ? {
+          sourceKey: naverInsights.sourceKey,
+          sourceLabel: naverInsights.sourceLabel,
+          sourceNote: naverInsights.sourceNote,
+          sampleBadge: naverInsights.sampleBadge,
+          trendSummary: naverInsights.trendSummary,
+          shoppingSummary: naverInsights.shoppingSummary,
+          topics: naverInsights.topics,
+          painPoints: naverInsights.painPoints,
+          pod: naverInsights.pod,
+          podBold: naverInsights.podBold,
+          conclusion: naverInsights.conclusion,
+          conclusionBold: naverInsights.conclusionBold,
+        }
+      : a.concept?.topics
+        ? { sourceKey: "ai_generated", sourceLabel: "AI 생성 · 미검증", ...a.concept }
+        : FALLBACK_CONCEPT,
     target: b.target ? { ...b.target, papers: (b.target.papers || []).map((p: any) => ({ ...p, sourceKey: "ai_generated" })), ingredients: (b.target.ingredients || []).map((i: any) => ({ ...i, sourceKey: "ai_generated" })) } : FALLBACK_TARGET,
     nutritionCompare: Array.isArray(b.nutritionCompare) && b.nutritionCompare.length ? b.nutritionCompare : FALLBACK_NUTRITION_COMPARE,
     formula,

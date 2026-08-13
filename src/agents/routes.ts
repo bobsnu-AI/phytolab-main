@@ -7,14 +7,15 @@ import { STEP2_INTRO, STEP2_FACTS, STEP2_TURN_PLAN } from "./step2_plan";
 import { STEP3_INTRO, STEP3_FACTS, STEP3_TURN_PLAN } from "./step3_plan";
 import { STEP4_INTRO, STEP4_FACTS, STEP4_TURN_PLAN } from "./step4_plan";
 import { getBriefRecommendation } from "./brief_recommend";
-import { generateProductDataset, type ConfirmedBrief } from "./dataset_generate";
+import { generateProductDataset, type ConfirmedBrief, type DatasetEnv } from "./dataset_generate";
 import { createIngredientPriceRoute } from "./ingredient_price";
 import type { LlmEnv } from "./llm";
+import type { NaverEnv } from "./consumer_insights";
 
 const STEP1_INTRO =
   '지금은 5명의 Agent(CLIO/RENA/MARA/FINN/REGA)가 "GLUCARE-M" (2형 당뇨환자용 액상 FSMP) 제품 개발을 위해 STAGE 1 시장조사 및 경쟁 SKU 벤치마킹을 실시간으로 논의 중입니다.';
 
-const app = new Hono<{ Bindings: LlmEnv & { AGRO_API_KEY?: string } }>();
+const app = new Hono<{ Bindings: LlmEnv & { AGRO_API_KEY?: string } & Partial<NaverEnv> }>();
 
 // 농산물 가격 API 라우트 등록
 app.route("/", createIngredientPriceRoute());
