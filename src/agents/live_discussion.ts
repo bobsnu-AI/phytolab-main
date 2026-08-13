@@ -1,6 +1,11 @@
 // 공통 라이브 논의 SSE 라우트 팩토리
 // STEP1에서 검증한 하이브리드 패턴(FACTS 고정 + TURN_PLAN 고정 + msg만 LLM 실시간 생성)을
 // Step2~5에 재사용하기 위해 일반화했습니다.
+//
+// 브리프별 동적 데이터셋 지원: SSE 요청에 ?dataset=<encodeURIComponent(JSON)> 쿼리가 실려오면
+// 정적 FACTS/INTRO 대신 그 데이터셋 기반으로 생성한 FACTS/INTRO를 사용합니다(TURN_PLAN 구조는 동일하게 유지 —
+// 발언 순서·발언자·reveal 섹션은 고정, 실제로 뭐라 말할지만 매 세션 LLM이 새 FACTS 기준으로 생성).
+// dataset 쿼리가 없으면(예: 기존 GLUCARE-M 프리셋 경로) 기존과 동일하게 정적 상수를 그대로 사용합니다.
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { AGENT_PERSONAS, type AgentId } from "./personas";
@@ -22,21 +27,43 @@ export interface DiscussionTurn {
 
 type Bindings = LlmEnv;
 
+export interface DynamicOpts {
+  /** 데이터셋에서 FACTS 블록에 포함할 최상위 키들 (예: ["product","market","competitors"]) */
+  datasetKeys: string[];
+  /** 데이터셋 기반 논의 도입부 문장 생성 */
+  buildIntro: (dataset: any) => string;
+}
+
+// 데이터셋의 지정된 키들만 뽑아 "이 안의 정보만 인용 가능" FACTS 블록으로 조립 (LLM 호출 아님, 순수 포맷팅)
+function buildFactsFromDataset(dataset: any, keys: string[]): string {
+  const picked: any = {};
+  for (const k of keys) picked[k] = dataset[k];
+  return `[제품 데이터 — 이 안의 정보만 인용 가능, 새로운 숫자·사실을 지어내지 말 것]
+${JSON.stringify(picked)}
+
+[규칙]
+- 위 데이터에 없는 새로운 숫자나 사실을 지어내지 말 것. 필요하면 "정확한 수치는 확인 필요"라고 말할 것.
+- 같은 팀 소속 Agent들과 대화하듯, 직전 발언들을 참고해서 자연스럽게 이어갈 것 (같은 말 반복 금지).
+- 1~2문장, 한국어, 존댓말. 이모지 금지(REGA의 ⚠ 표시만 예외).`.trim();
+}
+
 /**
- * @param path        SSE 엔드포인트 경로 (예: "/api/agents/step2/stream")
- * @param productIntro 논의 도입부에 들어갈 제품/스테이지 소개 문장
- * @param facts       이 스텝에서 고정 주입할 FACTS 블록
- * @param turnPlan    턴 순서 계획 (서버가 고정)
+ * @param path         SSE 엔드포인트 경로 (예: "/api/agents/step2/stream")
+ * @param staticIntro  데이터셋이 없을 때(정적 프리셋 경로) 사용할 도입부 문장
+ * @param staticFacts  데이터셋이 없을 때 사용할 고정 FACTS 블록
+ * @param turnPlan     턴 순서 계획 (서버가 고정, 데이터셋 유무와 무관하게 동일한 구조 재사용)
+ * @param dynamic      브리프별 동적 데이터셋 지원 옵션 (없으면 항상 정적 FACTS/INTRO만 사용)
  */
 export function createDiscussionRoute(
   path: string,
-  productIntro: string,
-  facts: string,
-  turnPlan: DiscussionTurn[]
+  staticIntro: string,
+  staticFacts: string,
+  turnPlan: DiscussionTurn[],
+  dynamic?: DynamicOpts
 ) {
   const route = new Hono<{ Bindings: Bindings }>();
 
-  function buildSystemPrompt(agentId: AgentId): string {
+  function buildSystemPrompt(agentId: AgentId, productIntro: string, facts: string): string {
     const p = AGENT_PERSONAS[agentId];
     return `당신은 ${p.name}입니다 — ${p.role} 담당 AI Agent (Phytolab.AI Multi-Agent 제품설계팀).
 전문 영역: ${p.expertise}
@@ -50,6 +77,18 @@ ${facts}`;
   }
 
   route.get(path, (c) => {
+    let dataset: any = null;
+    const raw = c.req.query("dataset");
+    if (raw) {
+      try {
+        dataset = JSON.parse(raw);
+      } catch {
+        dataset = null;
+      }
+    }
+    const productIntro = dataset && dynamic ? dynamic.buildIntro(dataset) : staticIntro;
+    const facts = dataset && dynamic ? buildFactsFromDataset(dataset, dynamic.datasetKeys) : staticFacts;
+
     return streamSSE(c, async (stream) => {
       const transcript: { agent: AgentId; msg: string }[] = [];
 
@@ -63,7 +102,7 @@ ${facts}`;
             : "(아직 발언 없음 · 이번이 논의의 첫 턴)";
 
           const messages: ChatMessage[] = [
-            { role: "system", content: buildSystemPrompt(turn.agent) },
+            { role: "system", content: buildSystemPrompt(turn.agent, productIntro, facts) },
             {
               role: "user",
               content: `지금까지의 팀 대화:\n${historyText}\n\n이번 턴 지시: ${turn.guidance}\n\n규칙: 정확히 1~2문장(60자 내외/문장). 직전 발언들에서 이미 나온 숫자·문장을 다시 요약하거나 반복하지 말고, 이번 지시에 해당하는 새 정보만 말할 것. 인사말·이모지·따옴표 없이 발언 내용만 출력하세요.`,

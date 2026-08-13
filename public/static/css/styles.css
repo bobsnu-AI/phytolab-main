@@ -121,6 +121,25 @@ body::before {
   overflow: hidden;
 }
 .workspace.no-agent { grid-template-columns: 232px 1fr; }
+.chat-toggle-tab {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 50;
+  width: 20px;
+  height: 56px;
+  border-radius: 6px 0 0 6px;
+  border: 1px solid var(--line);
+  border-right: none;
+  background: var(--bg-1);
+  color: var(--text-2);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  transition: right 0.2s ease, color 0.15s;
+}
+.chat-toggle-tab:hover { color: var(--accent); border-color: var(--accent); }
 .main-col { overflow: auto; padding: 20px 24px 40px; scroll-behavior: smooth; }
 .main-col::-webkit-scrollbar { width: 8px; height: 8px; }
 .main-col::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
@@ -484,6 +503,7 @@ body::before {
 .lg-dot-us { background: var(--accent-2); }
 
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.two-col .panel { height: 100%; box-sizing: border-box; }
 @media (max-width: 1200px) { .two-col { grid-template-columns: 1fr; } }
 
 .btn-ghost {
@@ -596,28 +616,6 @@ body::before {
 .cac-mid { background: oklch(from var(--warn) l c h / 0.15); color: var(--warn); }
 .cac-high { background: oklch(from var(--danger) l c h / 0.15); color: var(--danger); }
 
-/* ===== Heatmap ===== */
-.heatmap { display: flex; flex-direction: column; gap: 4px; }
-.heatmap-header, .heatmap-row {
-  display: grid;
-  grid-template-columns: 160px repeat(6, 1fr);
-  gap: 4px;
-  align-items: center;
-}
-.heatmap-col { font-size: 10px; color: var(--text-3); text-align: center; }
-.heatmap-label { font-size: 12px; color: var(--text-2); }
-.heatmap-cell {
-  height: 40px;
-  border-radius: 4px;
-  display: grid; place-items: center;
-  color: var(--bg-0);
-  font-size: 11px;
-  font-weight: 600;
-  transition: transform 0.2s;
-}
-.heatmap-cell:hover { transform: scale(1.05); z-index: 1; }
-[data-theme="terminal"] .heatmap-cell,
-[data-theme="clinical"] .heatmap-cell { color: var(--bg-0); }
 
 .callout {
   margin-top: 14px;
@@ -635,66 +633,6 @@ body::before {
 .callout-text strong { color: var(--accent); font-weight: 500; }
 
 /* ===== Step 2: Target ===== */
-.target-grid { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
-@media (max-width: 1200px) { .target-grid { grid-template-columns: 1fr; } }
-
-.persona-body { padding: 4px 0; }
-.persona-avatar { color: var(--accent); margin-bottom: 12px; }
-.persona-name { font-family: var(--font-serif); font-size: 22px; color: var(--text-1); }
-.persona-role { font-size: 12px; color: var(--text-3); margin-bottom: 12px; }
-.persona-stats { display: flex; flex-direction: column; gap: 4px; margin: 12px 0; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.persona-stats > div { display: flex; justify-content: space-between; font-size: 11px; }
-.persona-stats dt { color: var(--text-3); margin: 0; }
-.persona-stats dd { margin: 0; color: var(--text-1); }
-.symptoms-label { font-size: 10px; letter-spacing: 0.1em; color: var(--text-3); font-family: var(--font-mono); margin-bottom: 6px; }
-.symptoms-chips { display: flex; flex-wrap: wrap; gap: 4px; }
-.chip-symptom {
-  padding: 3px 8px;
-  border-radius: 100px;
-  background: oklch(from var(--accent-2) l c h / 0.15);
-  color: var(--accent-2);
-  font-size: 10px;
-  border: 1px solid oklch(from var(--accent-2) l c h / 0.3);
-}
-
-.painpoints-header, .painpoint-row {
-  display: grid;
-  grid-template-columns: 160px 60px 1fr 1fr 100px;
-  gap: 10px;
-  padding: 8px 0;
-  align-items: center;
-}
-.painpoints-header {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: var(--text-3);
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 10px;
-  margin-bottom: 4px;
-}
-.painpoint-row { border-bottom: 1px dashed var(--line); }
-.pp-name { font-size: 12px; color: var(--text-1); }
-.pp-col { display: flex; align-items: center; gap: 8px; font-size: 11px; }
-.pp-bar {
-  height: 6px;
-  background: linear-gradient(90deg, var(--accent), oklch(from var(--accent) l c h / 0.4));
-  border-radius: 3px;
-  flex: 1;
-}
-.pp-bar-unmet { background: linear-gradient(90deg, var(--danger), oklch(from var(--danger) l c h / 0.4)); }
-.pp-num { color: var(--text-2); min-width: 28px; text-align: right; }
-
-.priority-tag {
-  height: 22px;
-  border-radius: 4px;
-  padding: 0 10px;
-  display: inline-flex; align-items: center;
-  background: linear-gradient(90deg, oklch(from var(--accent) l c h / 0.3) 0, oklch(from var(--accent) l c h / 0.3) var(--p), var(--bg-2) var(--p));
-  color: var(--text-1);
-  border: 1px solid var(--line);
-  font-size: 11px;
-}
-
 .papers-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .paper-card {
   padding: 12px;
@@ -1259,22 +1197,6 @@ body::before {
   color: var(--accent);
 }
 .cs-txt { font-size: 12px; color: var(--text-1); line-height: 1.45; }
-
-/* Step 2: Condition box */
-.condition-box {
-  padding: 10px 12px;
-  background: oklch(from var(--accent) l c h / 0.1);
-  border: 1px solid oklch(from var(--accent) l c h / 0.25);
-  border-radius: var(--radius);
-  margin: 10px 0;
-}
-.condition-label {
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  color: var(--accent);
-  margin-bottom: 4px;
-}
-.condition-text { font-size: 12px; color: var(--text-1); line-height: 1.45; }
 
 /* Step 2: Nutrition target grid */
 .nutrition-target-grid {

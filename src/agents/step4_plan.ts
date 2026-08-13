@@ -1,122 +1,83 @@
-// STEP 4 (배합 설계) Multi-Agent 라이브 논의 플랜 — 5명 전원 투표(vote) → 합의(consensus) 구조 포함
+// STEP 5 (원가 시뮬레이션) Multi-Agent 라이브 논의 플랜
 import type { DiscussionTurn } from "./live_discussion";
 
 export const STEP4_INTRO =
-  '지금은 5명의 Agent(CLIO/RENA/MARA/FINN/REGA)가 "GLUCARE-M" (2형 당뇨환자용 액상 FSMP) 제품 개발을 위해 STAGE 4 배합 설계 및 표준제조기준 준수 검증을 실시간으로 논의 중입니다.';
+  '지금은 5명의 Agent(CLIO/RENA/MARA/FINN/REGA)가 "GLUCARE-M" (2형 당뇨환자용 액상 FSMP) 제품 개발을 위해 STAGE 4 원가·판가·마진 시뮬레이션을 실시간으로 논의 중입니다.';
 
 export const STEP4_FACTS = `
 [검증된 출처 데이터 — 이 안의 숫자만 인용 가능]
-- 배합 초안(200ml·200kcal 1팩 기준): 이소말툴로스 22g + 저항성말토덱스트린 6g + 유청단백분리물(WPI) 10g + 카제인나트륨 3g + 고올레산해바라기유(MUFA) 6g + MCT오일 2g + 비타민미네랄프리믹스 1.2g + 크롬피콜리네이트 0.05g + 레시틴 0.8g + 향미 0.3g + 감미료 0.05g + 정제수(담체) 148.6g
-- 계산 결과: 단백질 13g/식, 탄수 46.8%en, 단백 21.2%en, 지방 32.0%en, GI 28
-- FSMP 표준제조기준(식약처): 탄수 45-50%en, 단백 18-22%en, 지방 30-38%en, GI≤55(저GI) → 위 배합안은 전 항목 기준 충족
-- 원가: 박스당(24팩) 총원가 ₩13,210, 목표 MSRP 45,000원 기준 마진 70.6%
-- REGA 규제 검토: '근감소 예방'이라는 표현은 질병 예방·치료 효능 암시로 표시광고 심의 리스크 있음 → '근육량 유지 도움'으로 순화 권고
+- 박스당(24팩) 총원가 ₩13,210: 원료비 + 부자재·살균비 + 제조간접비 구성
+- 부자재·살균비 비중 약 46% (레토르트 파우치·외박스·라벨·살균 공정 포함)
+- 배치 규모 30,000박스+ 시 규모의 경제 효과 발생 (제조간접비 체감)
+- 목표 MSRP 45,000원 기준, 소비자가 경쟁 밴드 3.8만~5.4만원 중간대
+- 채널별 수수료: 병원 18%, 요양시설 15%, 약국·H&B 28%, 온라인D2C 12%, 홈쇼핑 35%
+- 병원 채널 기준 영업이익률 약 27% 시나리오, 요양시설 채널은 30%+ 가능
+- 연 매출 시나리오(배치 30,000박스×12개월, MSRP 45,000원 가정): 연 매출 약 108억원, 영업이익 약 29억원(이익률 27%), 3년 내 손익분기 전망
 
-[Agent 추정 — 반드시 "추정치"라고 밝히고 인용할 것]
-- WPI 10g 이상 배합 시 장기 안정성(3개월 가속시험) 검증이 아직 안 되었다는 점은 RENA의 우려 사항으로, 실제 시험 데이터가 아닌 배합 설계상 리스크 판단임을 명시할 것
+[Agent 추정 — 반드시 "추정치" 또는 "시나리오"라고 밝히고 인용할 것]
+- 급여화(건강보험 적용) 여부에 따른 판가 변동은 아직 확정되지 않은 정책 리스크이며, REGA가 제기하는 대안 시나리오임을 명시할 것
+- 판가 20% 인하 시에도 마진 12%+ 확보 가능하다는 수치는 FINN의 시뮬레이션 추정치임을 명시할 것
 
 [규칙]
 - 위 목록에 없는 새로운 숫자를 지어내지 말 것.
-- 5명 Agent가 순서대로 투표(vote)하는 마지막 구간에서는 각자 자기 전문 분야 관점에서 "✓ 승인" 또는 "✓ 승인(조건부)"라고만 짧게 말할 것 (반대는 없음 — 이미 REGA의 조건부 지적이 반영된 이후 투표이므로).
+- 추정·시나리오성 수치는 반드시 "추정치" 또는 "시나리오"라는 표현을 포함할 것.
 - 같은 팀 소속 Agent들과 대화하듯, 직전 발언들을 참고해서 자연스럽게 이어갈 것 (같은 말 반복 금지).
-- 1~2문장, 한국어, 존댓말. 이모지 금지(REGA의 ⚠, 합의 시 🎉는 예외).
+- 1~2문장, 한국어, 존댓말. 이모지 금지(REGA의 ⚠ 표시만 예외).
 `.trim();
 
 export const STEP4_TURN_PLAN: DiscussionTurn[] = [
   {
     id: 1,
-    agent: "rena",
+    agent: "finn",
     type: "action",
-    tool: "Formula Generator",
-    guidance: "표준제조기준과 임상 근거를 만족하는 배합안 여러 개를 생성했다고 짧게 알린다. 아직 최종안은 밝히지 않는다.",
-    fallbackMsg: "표준제조기준+근거 만족 배합안 12개 생성 완료",
+    tool: "Cost Calculator + Batch Simulator",
+    guidance: "MOQ·수율·채널을 반영해 실질 원가를 재계산하기 시작한다고 짧게 알린다. 아직 결과는 밝히지 않는다.",
+    fallbackMsg: "MOQ·수율·채널 반영 실질 원가 재계산 중",
   },
   {
     id: 2,
-    agent: "rena",
+    agent: "finn",
     type: "finding",
-    revealsSection: "formula_table",
-    guidance: "최종 선정된 배합 초안(이소말툴로스 22g + WPI 10g + 카제인 3g + MUFA 6g 등)을 핵심 원료 중심으로 짧게 보고한다.",
-    fallbackMsg: "최적안: 이소말툴로스 22g + WPI 10g + 카제인 3g + MUFA 6g",
+    revealsSection: "cost_breakdown",
+    guidance: "박스당 총원가와 부자재·살균비 비중, 배치 규모 효과를 함께 짧게 보고한다.",
+    fallbackMsg: "박스당 총원가 ₩13,210 · 부자재·살균 46% · 배치 30,000박스+ 규모 효과",
   },
   {
     id: 3,
-    agent: "clio",
-    type: "review",
-    revealsSection: "efficacy",
-    guidance: "이 배합안의 단백질 함량과 임상 근거 등급을 임상영양 관점에서 검토하고 승인 가능한 수준인지 짧게 평가한다.",
-    fallbackMsg: "단백 13g/식 확보 · 근거 A등급 충족 수준으로 검토됩니다",
+    agent: "mara",
+    type: "support",
+    revealsSection: "pricing",
+    guidance: "목표 MSRP가 경쟁 밴드 어디에 위치하는지, 채널 인지 관점에서 왜 적절한지 시장 관점에서 화답한다.",
+    fallbackMsg: "MSRP 45,000원 경쟁 밴드 중간대 · 채널 인지 최적",
   },
   {
     id: 4,
-    agent: "rega",
-    type: "review",
-    revealsSection: "compliance",
-    guidance: "탄수/단백/지방 비율과 GI 수치가 표준제조기준을 모두 충족하는지 항목별로 짧게 확인해준다.",
-    fallbackMsg: "탄수 46.8%en ✓ 단백 21.2%en ✓ 지방 32.0%en ✓ GI 28 ✓",
+    agent: "finn",
+    type: "insight",
+    revealsSection: "channel",
+    guidance: "채널별 수수료 구조를 근거로, 병원과 요양시설 채널이 왜 이익률 측면에서 유리한지 설명한다.",
+    fallbackMsg: "병원 수수료 18% · 이익률 27% · 요양시설은 30%+ 가능",
   },
   {
     id: 5,
     agent: "rega",
-    type: "flag",
-    guidance: "'근감소 예방'이라는 표현이 표시광고 심의상 리스크가 있어 순화가 필요하다고 경고 형태로 짧게 지적한다. ⚠ 사용 가능.",
-    fallbackMsg: "⚠ '근감소 예방' 문구 → '근육량 유지 도움'으로 순화 권고",
+    type: "concern",
+    guidance: "급여화(건강보험 적용) 결과에 따른 판가 변동 리스크를 경고 형태로 짧게 제기하며 대안 시나리오 필요성을 언급한다. ⚠ 사용 가능.",
+    fallbackMsg: "⚠ 급여화 결과에 따른 판가 변동 리스크 · 대안 시나리오 필요",
   },
   {
     id: 6,
-    agent: "rena",
-    type: "concern",
-    guidance: "WPI 10g 이상 배합의 장기 안정성 검증이 아직 안 되어 있다는 우려를 배합 설계 리스크로서 짧게 제기한다. 실제 시험 데이터가 아님을 명시한다.",
-    fallbackMsg: "WPI 10g+ 배합 안정성은 아직 미검증 · 3개월 가속시험 필요(설계상 우려)",
+    agent: "finn",
+    type: "acknowledge",
+    guidance: "REGA의 우려에 대응해, 판가를 20% 인하하는 보수적 시나리오에서도 마진이 방어되는지 시뮬레이션 추정치로 짧게 답한다.",
+    fallbackMsg: "판가 20% 인하 시나리오에서도 마진 12%+ 확보 가능(추정치)",
   },
   {
     id: 7,
     agent: "finn",
-    type: "analysis",
-    guidance: "이 배합안 기준 박스당 총원가와 목표 MSRP 대비 마진율을 원가 관점에서 짧게 보고한다.",
-    fallbackMsg: "박스당 총원가 ₩13,210 · 마진 70.6%",
-  },
-  {
-    id: 8,
-    agent: "clio",
-    type: "vote",
-    guidance: "임상영양 관점에서 이 배합안에 대해 승인 의사를 짧게 밝힌다.",
-    fallbackMsg: "✓ 승인 · 근거 A 등급",
-  },
-  {
-    id: 9,
-    agent: "rega",
-    type: "vote",
-    guidance: "규제 관점에서 조건부 승인(라벨 순화 후 최종) 의사를 짧게 밝힌다.",
-    fallbackMsg: "✓ 승인(조건부) · 라벨 순화 후 최종",
-  },
-  {
-    id: 10,
-    agent: "rena",
-    type: "vote",
-    guidance: "배합·제형 관점에서 승인 의사를 짧게 밝힌다.",
-    fallbackMsg: "✓ 승인 · 시제품 배치 가능",
-  },
-  {
-    id: 11,
-    agent: "finn",
-    type: "vote",
-    guidance: "원가 관점에서 승인 의사를 짧게 밝힌다.",
-    fallbackMsg: "✓ 승인 · 마진 목표 달성",
-  },
-  {
-    id: 12,
-    agent: "mara",
-    type: "vote",
-    guidance: "시장·경쟁 관점에서 승인 의사를 짧게 밝힌다.",
-    fallbackMsg: "✓ 승인 · 경쟁 대비 스펙 우위",
-  },
-  {
-    id: 13,
-    agent: "rena",
-    type: "consensus",
-    revealsSection: ["formula_table", "efficacy", "compliance", "sensory"],
-    guidance: "5명 전원 승인으로 만장일치가 달성되었음을 짧게 선언하고, 다음 단계인 원가 시뮬레이션 진행을 알린다. 🎉 사용 가능.",
-    fallbackMsg: "🎉 5/5 만장일치 · Step 5 진행",
+    type: "conclusion",
+    revealsSection: "annual",
+    guidance: "연 매출·영업이익·손익분기 시점을 종합해 최종 결론을 짧게 제시한다. 시나리오 기반 수치임을 명시한다.",
+    fallbackMsg: "연 매출 약 108억 · 영업이익 약 29억(27%) · 3년 내 손익분기 전망(시나리오)",
   },
 ];

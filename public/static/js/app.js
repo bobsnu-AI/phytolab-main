@@ -1,4 +1,4 @@
-// App Root: STAGE 00 Brief Landing ↔ STAGE 01-05 Workflow 라우팅
+// App Root: STAGE 00 Brief Landing ↔ STAGE 01-04 Workflow 라우팅
 (function () {
   const { useState, useEffect } = React;
 
@@ -8,6 +8,7 @@
       return saved ? +saved : 1;
     });
     const [activeAgents, setActiveAgents] = useState([]);
+    const [chatOpen, setChatOpen] = useState(true);
     useEffect(() => { localStorage.setItem("phytolab-step", String(step)); }, [step]);
 
     const briefSummary = React.useMemo(() => {
@@ -39,21 +40,31 @@
             </div>
           )}
           <window.AgentRoster activeAgents={activeAgents} currentStep={step} />
-          <div className="workspace">
+          <div className={`workspace ${chatOpen ? "" : "no-agent"}`}>
             <window.Shell.StepNav current={step} setCurrent={setStep} />
             <div className="main-col">
-              {step === 4 && <window.ConsensusMeter step={step} />}
+              {step === 3 && <window.ConsensusMeter step={step} />}
               {step === 1 && <window.Step1Market />}
               {step === 2 && <window.Step2Target />}
-              {step === 3 && <window.Step3Analysis />}
-              {step === 4 && <window.Step4Formula />}
-              {step === 5 && <window.Step5Cost />}
+              {step === 3 && <window.Step3Formula />}
+              {step === 4 && <window.Step4Cost />}
             </div>
-            <window.MultiAgentReasoning
-              step={step}
-              speed="normal"
-              onActiveAgentsChange={setActiveAgents}
-            />
+            {chatOpen && (
+              <window.MultiAgentReasoning
+                step={step}
+                speed="normal"
+                onActiveAgentsChange={setActiveAgents}
+              />
+            )}
+            <button
+              type="button"
+              className="chat-toggle-tab"
+              style={{ right: chatOpen ? "340px" : "0" }}
+              onClick={() => setChatOpen(v => !v)}
+              title={chatOpen ? "대화 패널 닫기" : "대화 패널 열기"}
+            >
+              {chatOpen ? "›" : "‹"}
+            </button>
           </div>
         </div>
       </AgentStreamProvider>
@@ -63,6 +74,13 @@
   function App() {
     const [screen, setScreen] = useState(() => {
       const launched = localStorage.getItem("phytolab-launched");
+      // 새로고침 시 이전에 생성된 데이터셋을 window.PHYTO_DATA에 복원 (없으면 mockData.js 기본값 유지)
+      if (launched === "1") {
+        const savedDataset = localStorage.getItem("phytolab-generated-dataset");
+        if (savedDataset) {
+          try { Object.assign(window.PHYTO_DATA, JSON.parse(savedDataset)); } catch (e) {}
+        }
+      }
       return launched === "1" ? "workflow" : "brief";
     });
     const [brief, setBrief] = useState(() => {
@@ -80,13 +98,17 @@
       setScreen("brief");
     };
 
+    const FormulaProvider = window.FormulaProvider || (({ children }) => children);
+
     return (
       <>
         {screen === "brief" && window.BriefLanding && (
           <window.BriefLanding onLaunch={handleLaunch} />
         )}
         {screen === "workflow" && (
-          <Workflow brief={brief} onBackToBrief={handleBackToBrief} />
+          <FormulaProvider key={window.PHYTO_DATA?.product?.codename || "default"}>
+            <Workflow brief={brief} onBackToBrief={handleBackToBrief} />
+          </FormulaProvider>
         )}
       </>
     );
@@ -112,12 +134,7 @@
     }
   }
 
-  function Root() {
-    const FP = window.FormulaProvider;
-    return FP ? <FP><App /></FP> : <App />;
-  }
-
   ReactDOM.createRoot(document.getElementById("app-root")).render(
-    <Boundary><Root /></Boundary>
+    <Boundary><App /></Boundary>
   );
 })();

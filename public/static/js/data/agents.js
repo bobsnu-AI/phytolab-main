@@ -65,11 +65,10 @@ window.AGENTS = {
 
 // 스텝별 주도 Agent 및 지원 Agent
 window.STEP_LEADS = {
-  1: { lead: "mara", support: ["clio", "finn"] },
+  1: { lead: "mara", support: ["clio", "rena", "finn"] },
   2: { lead: "clio", support: ["mara", "rega"] },
-  3: { lead: "mara", support: ["rena", "finn"] },
-  4: { lead: "rena", support: ["clio", "rega", "finn"] },
-  5: { lead: "finn", support: ["mara", "rega"] },
+  3: { lead: "rena", support: ["clio", "rega", "finn"] },
+  4: { lead: "finn", support: ["mara", "rega"] },
 };
 
 // Multi-Agent 대화 스트림

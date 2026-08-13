@@ -46,8 +46,8 @@
     const proteinPct = kcal > 0 ? (protein * 4 / kcal) * 100 : 0;
     const fatPct = kcal > 0 ? (fat * 9 / kcal) * 100 : 0;
 
-    const isoAmount = ings.find(x => x.id === "iso")?.amount || 0;
-    const estimatedGi = Math.round(75 - (isoAmount / Math.max(1, carb)) * 45);
+    const giIngAmount = ings.find(x => x.id === initial.giIngredientId)?.amount || 0;
+    const estimatedGi = Math.round(initial.giBaseline - (giIngAmount / Math.max(1, carb)) * initial.giWeight);
 
     const ingCostPerPack = ings.reduce((s, x) => s + x.amount * priceFor(x) / (x.yieldPct / 100), 0);
     const rawPerBox = ingCostPerPack * servings / (yieldOverall / 100);

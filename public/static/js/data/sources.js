@@ -104,6 +104,13 @@ window.SOURCES = {
   },
 
   // ---- 검증되지 않은 항목 (프로토타입 추정치) ----
+  ai_generated: {
+    org: "Phytolab AI 생성",
+    label: "AI 생성 · 미검증",
+    detail: "선택한 브리프에 맞춰 LLM이 즉석에서 생성한 시연용 데이터입니다. 실제 시장·연구 데이터가 아닙니다.",
+    url: null,
+    verified: false,
+  },
   agent_estimate: {
     org: "Phytolab Agent 추정",
     label: "공개 통계 부재 · 시연용 추정치",

@@ -3,22 +3,42 @@
 // 오른쪽 Agent 대화가 해당 결론에 도달하는 시점에 맞춰 순차적으로 나타난다.
 // 스크립트 재생 모드(스텝2~5, 라이브 미연동)에서는 RevealSection이 children을 그대로 통과시켜
 // 기존과 동일하게 즉시 렌더된다.
+
+// 텍스트 안에서 boldParts에 있는 부분 문자열만 <strong>으로 감싸 렌더 (데이터 기반 콜아웃용)
+function boldify(text, boldParts) {
+  if (!boldParts || !boldParts.length) return text;
+  const pattern = new RegExp(`(${boldParts.map(b => b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "g");
+  return text.split(pattern).map((part, i) => boldParts.includes(part) ? <strong key={i}>{part}</strong> : part);
+}
+
 const Step1Market = () => {
   const d = PHYTO_DATA.market;
-  const heat = (v) => `oklch(0.72 ${0.03 + (v/100)*0.14} 235 / ${0.15 + (v/100)*0.85})`;
+  const comps = PHYTO_DATA.competitors;
+  const product = PHYTO_DATA.product;
+  const reviews = PHYTO_DATA.reviews;
+  const concept = PHYTO_DATA.concept;
+  const nutritionCompare = PHYTO_DATA.nutritionCompare;
   const Reveal = window.RevealSection || (({ children }) => children);
+
+  // 포지셔닝 맵: X = 가격, Y = 임상근거 강도
+  const ourStrength = product.targetEvidenceStrength;
+  const ourPrice = product.targetPrice;
+  const priceMin = 32000, priceMax = 60000;
+  const xPct = (p) => ((p - priceMin) / (priceMax - priceMin)) * 100;
+  const yPct = (s) => (1 - s/10) * 100;
 
   return (
     <div className="step-content">
       <div className="step-header">
         <div>
-          <div className="step-eyebrow mono">STAGE 01 · MARKET SCAN</div>
-          <h1 className="step-title">특수의료용도식품 · 당뇨환자용 시장</h1>
-          <div className="step-desc">급여화 논의·고령화·당뇨 유병률 상승 · 병원·요양시설 B2B 65%</div>
+          <div className="step-eyebrow mono">STAGE 01 · MARKET & COMPETITOR SCAN</div>
+          <h1 className="step-title">{d.headerTitle}</h1>
+          <div className="step-desc">{d.headerDesc}</div>
         </div>
         <div className="step-badges">
           <div className="badge"><span className="badge-k">DATA</span><span className="badge-v-row"><span className="badge-v">식약처 · KDA · Global Data</span><window.SourceTag id="mfds_fsmp_standard" label="" /></span></div>
           <div className="badge"><span className="badge-k">SCAN</span><span className="badge-v-row"><span className="badge-v mono">FSMP 218 SKU</span><window.SourceTag id="agent_estimate" label="" /></span></div>
+          <div className="badge"><span className="badge-k">SKUS</span><span className="badge-v mono">스캔 62 · 채택 5</span></div>
           <div className="badge"><span className="badge-k">UPDATED</span><span className="badge-v mono">2026-06-28</span></div>
         </div>
       </div>
@@ -138,47 +158,221 @@ const Step1Market = () => {
         </Reveal>
       </div>
 
-      {/* 적응증 검색 트렌드 — MARA 발언으로 도출 */}
-      <Reveal id="trends" label="처방·구매 트렌드" agent="mara">
-        <div className="panel">
-          <div className="panel-header">
-              <div>
-              <div className="panel-title">FSMP 적응증별 임상영양 처방·구매 트렌드 <window.SourceTag id="agent_estimate" label="추정치" /></div>
-              <div className="panel-sub">최근 6분기 지수 (공개 처방 데이터 미확보 · Agent 시연용 추정)</div>
-            </div>
-            <div className="panel-note mono">병원 처방 + B2B 발주</div>
+      <Reveal id="positioning" label="경쟁 포지셔닝 맵" agent="mara">
+      <div className="panel">
+        <div className="panel-header">
+          <div>
+            <div className="panel-title">경쟁 포지셔닝 맵</div>
+            <div className="panel-sub">가격 × 근거강도 · 원크기=리뷰수</div>
           </div>
-          <div className="heatmap">
-            <div className="heatmap-header">
-              <div className="heatmap-corner"></div>
-              {d.trends.map((t, i) => <div key={i} className="heatmap-col mono">{t.q}</div>)}
-            </div>
-            {[
-              { key: "diabetes",  label: "당뇨환자용" },
-              { key: "oncol",     label: "암환자용" },
-              { key: "renal",     label: "신장질환용" },
-              { key: "dysphagia", label: "연하곤란용" },
-            ].map((row) => (
-              <div key={row.key} className="heatmap-row">
-                <div className="heatmap-label">{row.label}</div>
-                {d.trends.map((t, i) => (
-                  <div key={i} className="heatmap-cell" style={{background: heat(t[row.key])}}>
-                    <span className="mono">{t[row.key]}</span>
-                  </div>
-                ))}
-              </div>
-            ))}
+          <div className="panel-legend">
+            <span className="lg-item"><span className="lg-dot lg-dot-us"></span>{product.codename} (제안)</span>
+            <span className="lg-item"><span className="lg-dot"></span>경쟁제품</span>
           </div>
         </div>
+        <div className="position-map">
+          <div className="pm-axis pm-y">
+            <span className="mono pm-axis-label">← 임상 근거 강도</span>
+          </div>
+          <div className="pm-plot">
+            <div className="pm-grid">
+              {[1,2,3].map(i => <div key={`h${i}`} className="pm-line pm-line-h" style={{top: `${i*25}%`}}></div>)}
+              {[1,2,3].map(i => <div key={`v${i}`} className="pm-line pm-line-v" style={{left: `${i*25}%`}}></div>)}
+            </div>
+            <div className="pm-sweetspot">
+              <span className="mono">SWEET SPOT</span>
+            </div>
+            {comps.map((c, i) => (
+              <div key={i} className="pm-node" style={{left: `${xPct(c.price)}%`, top: `${yPct(c.evidenceStrength)}%`, "--sz": `${18 + Math.log(c.reviews)*3}px`}}>
+                <div className="pm-node-dot"></div>
+                <div className="pm-node-label">{c.brand}</div>
+              </div>
+            ))}
+            <div className="pm-node pm-node-us" style={{left: `${xPct(ourPrice)}%`, top: `${yPct(ourStrength)}%`}}>
+              <div className="pm-node-dot"></div>
+              <div className="pm-node-label">{product.codename}</div>
+              <div className="pm-node-flag mono">우리 위치</div>
+            </div>
+          </div>
+          <div className="pm-axis pm-x">
+            <span className="mono">3.2만원</span>
+            <span className="mono pm-axis-label">가격 (24팩 박스) →</span>
+            <span className="mono">6.0만원</span>
+          </div>
+        </div>
+      </div>
+      </Reveal>
+
+      <Reveal id="matrix" label="스펙·가격·채널 비교" agent="mara">
+      <div className="panel">
+        <div className="panel-header">
+          <div>
+            <div className="panel-title">스펙 · 가격 · 채널 비교 매트릭스</div>
+            <div className="panel-sub">24팩박스=8일치 기준</div>
+          </div>
+        </div>
+        <div className="compare-table">
+          <div className="ct-header mono">
+            <div>제품</div>
+            <div>제형</div>
+            <div>핵심 스펙</div>
+            <div>클레임</div>
+            <div>박스 가격</div>
+            <div>평점</div>
+            <div>주 채널</div>
+          </div>
+          {comps.map((c, i) => (
+            <div key={i} className="ct-row">
+              <div className="ct-brand">{c.brand}</div>
+              <div><span className="chip">{c.format}</span></div>
+              <div className="ct-key mono">{c.key}</div>
+              <div className="ct-claim">{c.claim}</div>
+              <div className="mono ct-price">₩{c.price.toLocaleString()}</div>
+              <div className="ct-rating">
+                <div className="stars">
+                  <div className="stars-fill" style={{width: `${c.rating/5*100}%`}}></div>
+                </div>
+                <span className="mono">{c.rating}</span>
+              </div>
+              <div className="ct-channel">{c.channel}</div>
+            </div>
+          ))}
+          <div className="ct-row ct-row-us">
+            <div className="ct-brand">
+              <span className="us-mark">◆</span>
+              {product.codename} <span className="mono ct-tag">제안</span>
+            </div>
+            <div><span className="chip chip-primary">{product.format}</span></div>
+            <div className="ct-key mono">{product.positioningSpec}</div>
+            <div className="ct-claim">{product.positioningClaim}</div>
+            <div className="mono ct-price">₩{ourPrice.toLocaleString()}</div>
+            <div className="ct-rating">
+              <div className="stars"><div className="stars-fill" style={{width: `${product.positioningRating/5*100}%`}}></div></div>
+              <span className="mono">{product.positioningRating}*</span>
+            </div>
+            <div className="ct-channel">{product.positioningChannel}</div>
+          </div>
+        </div>
+      </div>
+      </Reveal>
+
+      {/* 영양 조성 비교 레이더 스타일 */}
+      <Reveal id="nutrition_compare" label="영양 조성 비교" agent="mara">
+      <div className="panel">
+        <div className="panel-header">
+          <div>
+            <div className="panel-title">주요 영양 조성 비교</div>
+            <div className="panel-sub">1식 기준 · KDA 대비</div>
+          </div>
+        </div>
+        <div className="nutrition-compare">
+          {nutritionCompare.map((row, i) => {
+            const ourPct = row.inverse ? (1 - row.our/row.max)*100 : (row.our/row.max)*100;
+            const avgPct = row.inverse ? (1 - row.avg/row.max)*100 : (row.avg/row.max)*100;
+            const targetPct = row.inverse ? (1 - row.target/row.max)*100 : (row.target/row.max)*100;
+            return (
+              <div key={i} className="nc-row">
+                <div className="nc-label">{row.label}</div>
+                <div className="nc-bars">
+                  <div className="nc-bar-track">
+                    <div className="nc-bar nc-bar-avg" style={{width: `${avgPct}%`}}></div>
+                    <div className="nc-bar nc-bar-us" style={{width: `${ourPct}%`}}></div>
+                    <div className="nc-target-mark" style={{left: `${targetPct}%`}}></div>
+                  </div>
+                </div>
+                <div className="nc-values mono">
+                  <span className="nc-us">{row.our}</span>
+                  <span className="nc-sep">vs</span>
+                  <span className="nc-avg">{row.avg}</span>
+                </div>
+              </div>
+            );
+          })}
+          <div className="nc-legend mono">
+            <span><span className="nc-dot nc-us"></span>{product.codename}</span>
+            <span><span className="nc-dot nc-avg"></span>경쟁 평균</span>
+            <span><span className="nc-dot nc-target"></span>KDA 권고</span>
+          </div>
+        </div>
+      </div>
+      </Reveal>
+
+      <Reveal id="reviews" label="리뷰 시그널" agent="mara">
+      <div className="two-col">
+        <div className="panel">
+          <div className="panel-header">
+            <div>
+              <div className="panel-title">리뷰·평가 · 긍정 시그널</div>
+              <div className="panel-sub">처방+리뷰 클러스터링</div>
+            </div>
+          </div>
+          <div className="wordcloud pos">
+            {reviews.positive.map((x,i)=>(<span key={i} className="tag" style={{fontSize: `${11+x.w*0.35}px`}}>{x.t}</span>))}
+          </div>
+        </div>
+        <div className="panel">
+          <div className="panel-header">
+            <div>
+              <div className="panel-title">리뷰·평가 · 부정 시그널</div>
+              <div className="panel-sub">개선 기회 지점</div>
+            </div>
+          </div>
+          <div className="wordcloud neg">
+            {reviews.negative.map((x,i)=>(<span key={i} className="tag" style={{fontSize: `${11+x.w*0.35}px`}}>{x.t}</span>))}
+          </div>
+        </div>
+      </div>
+      </Reveal>
+
+      <Reveal id="concept_pod" label="컨셉 도출 & POD 발굴" agent="mara">
+      <div className="panel concept-panel">
+        <div className="panel-header">
+          <div>
+            <div className="panel-title">컨셉 도출 & POD 발굴 <window.SourceTag id={concept.sourceKey} label={concept.sourceLabel} /></div>
+            <div className="panel-sub">{concept.sourceNote}</div>
+          </div>
+          <div className="panel-note mono">{concept.sampleBadge}</div>
+        </div>
+
+        <div className="lda-topics">
+          {concept.topics.map((topic) => (
+            <div key={topic.id} className="lda-topic-card">
+              <div className="lda-topic-head">
+                <span className={`lda-topic-dot lda-dot-${topic.color}`}></span>
+                <span className="lda-topic-name">Topic {topic.id} · {topic.name}</span>
+                <span className="mono lda-topic-docs">문서 {topic.docs}/{topic.totalDocs}건</span>
+              </div>
+              <div className="wordcloud lda-wordcloud">
+                {topic.kws.map((x, i) => (
+                  <span key={i} className="tag" style={{fontSize: `${10+x.w*0.16}px`}}>{x.t}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="painpoint-pod-grid">
+          <div className="pod-block">
+            <div className="pod-block-label mono">PAIN POINT · {concept.painPoints.length}갈래</div>
+            <ul className="pod-list">
+              {concept.painPoints.map((p, i) => (
+                <li key={i}><strong>{p.label}</strong> — {p.text}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="callout pod-callout">
+            <div className="callout-tag mono">POD</div>
+            <div className="callout-text">{boldify(concept.pod, concept.podBold)}</div>
+          </div>
+        </div>
+      </div>
       </Reveal>
 
       {/* 결론 — MARA 발언으로 도출 */}
       <Reveal id="conclusion" label="종합 결론" agent="mara">
         <div className="callout">
           <div className="callout-tag mono">AGENT INSIGHT</div>
-          <div className="callout-text">
-            <strong>당뇨환자용 FSMP 6분기 연속 &gt;15% 성장</strong> · 60대+ 가정 대체식 수요 D2C로 확산 → <strong>병원 우선 진입 → D2C 확장</strong> 권장
-          </div>
+          <div className="callout-text">{boldify(concept.conclusion, concept.conclusionBold)}</div>
         </div>
       </Reveal>
     </div>

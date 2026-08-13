@@ -13,11 +13,26 @@
     2: "/api/agents/step2/stream",
     3: "/api/agents/step3/stream",
     4: "/api/agents/step4/stream",
-    5: "/api/agents/step5/stream",
+  };
+  // 서버 SSE 라우트가 ?dataset= 쿼리로 픽업하는 최상위 키들 (src/agents/routes.ts의 datasetKeys와 동일해야 함)
+  const STEP_DATASET_KEYS = {
+    1: ["product", "market", "competitors", "reviews", "concept"],
+    2: ["target", "nutritionCompare"],
+    3: ["formula"],
+    4: ["cost", "formula"],
   };
 
+  function buildStepEndpoint(step) {
+    const path = STEP_ENDPOINTS[step];
+    if (!path) return null;
+    if (!window.PHYTO_DATA?.generated) return path;
+    const picked = {};
+    (STEP_DATASET_KEYS[step] || []).forEach(k => { picked[k] = window.PHYTO_DATA[k]; });
+    return `${path}?dataset=${encodeURIComponent(JSON.stringify(picked))}`;
+  }
+
   function AgentStreamProvider({ step, children }) {
-    const endpoint = STEP_ENDPOINTS[step];
+    const endpoint = buildStepEndpoint(step);
     const isLive = !!endpoint;
 
     const [turns, setTurns] = useState([]);

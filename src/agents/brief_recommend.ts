@@ -9,10 +9,10 @@
 import { AGENT_PERSONAS, type AgentId } from "./personas";
 import { callAgentLlm, type LlmEnv } from "./llm";
 
-export type RecAxis = "condition" | "ingredient" | "format" | "reg" | "channel" | "strategy";
+export type RecAxis = "category" | "ingredient" | "format" | "reg" | "channel" | "strategy";
 
 interface AxisRule {
-  condition: string[];
+  category: string;
   ingredient: string[];
   format: string;
   reg: string;
@@ -22,7 +22,7 @@ interface AxisRule {
 
 // 각 추천 축을 담당하는 Agent (brief.js의 axis.lead와 동일하게 매핑)
 export const REC_AXIS_AGENT: Record<RecAxis, AgentId> = {
-  condition: "clio",
+  category: "mara",
   ingredient: "rena",
   format: "rena",
   reg: "rega",
@@ -30,8 +30,8 @@ export const REC_AXIS_AGENT: Record<RecAxis, AgentId> = {
   strategy: "finn",
 };
 
-// 옵션 라벨(한국어) — LLM 프롬프트와 fallback 문장 생성에 사용
-const LABELS: Record<string, Record<string, string>> = {
+// 옵션 라벨(한국어) — LLM 프롬프트와 fallback 문장 생성에 사용 (dataset_generate.ts도 재사용)
+export const LABELS: Record<string, Record<string, string>> = {
   category: {
     fsmp: "특수의료용도식품", hfunc: "건강기능식품", senior: "고령친화식품",
     personal: "개인맞춤형식품", general: "일반식품(기능성표시)", sports: "스포츠·퍼포먼스",
@@ -68,37 +68,41 @@ const LABELS: Record<string, Record<string, string>> = {
   },
 };
 
-function label(axis: string, id: string): string {
+export function label(axis: string, id: string): string {
   return LABELS[axis]?.[id] || id;
 }
 
-// ---------- 규칙 테이블 1: 카테고리 기본값 ----------
-const CATEGORY_DEFAULTS: Record<string, AxisRule> = {
-  fsmp:     { condition: ["metabolic"],         ingredient: ["dairy", "plant"],   format: "liquid", reg: "fsmp",     channel: ["hospital", "d2c"],  strategy: "premium" },
-  hfunc:    { condition: ["immune"],            ingredient: ["herbal", "func"],   format: "tablet", reg: "hfunc-n",  channel: ["d2c", "phar"],       strategy: "premium" },
-  senior:   { condition: ["sarco", "bone"],     ingredient: ["dairy", "plant"],   format: "jelly",  reg: "seniorks", channel: ["nursing", "hospital"], strategy: "value" },
-  personal: { condition: ["metabolic", "sarco"],ingredient: ["plant", "ferment"], format: "powder", reg: "hfunc-i",  channel: ["d2c"],               strategy: "custom" },
-  general:  { condition: ["gut", "beauty"],     ingredient: ["ferment", "plant"], format: "liquid", reg: "label",    channel: ["d2c", "conv"],        strategy: "subs" },
-  sports:   { condition: ["sarco"],             ingredient: ["dairy", "plant"],   format: "powder", reg: "hfunc-n",  channel: ["d2c", "mart"],        strategy: "mass" },
-  meal:     { condition: ["metabolic"],         ingredient: ["plant", "syn"],     format: "solid",  reg: "regular",  channel: ["mart", "conv"],       strategy: "value" },
-  infant:   { condition: ["immune"],            ingredient: ["dairy", "syn"],     format: "liquid", reg: "fsmp",     channel: ["phar", "hospital"],   strategy: "premium" },
+// ---------- 규칙 테이블 1: 건강이슈(condition) 기본값 ----------
+const CONDITION_DEFAULTS: Record<string, AxisRule> = {
+  metabolic: { category: "fsmp",     ingredient: ["dairy", "plant"],  format: "liquid", reg: "fsmp",     channel: ["hospital", "d2c"],   strategy: "premium" },
+  sarco:     { category: "senior",   ingredient: ["dairy", "plant"],  format: "jelly",  reg: "seniorks", channel: ["nursing", "hospital"], strategy: "value" },
+  cog:       { category: "hfunc",    ingredient: ["herbal", "marine"], format: "tablet", reg: "hfunc-i",  channel: ["d2c", "phar"],       strategy: "premium" },
+  immune:    { category: "hfunc",    ingredient: ["herbal", "func"],  format: "tablet", reg: "hfunc-n",  channel: ["d2c", "phar"],        strategy: "premium" },
+  gut:       { category: "general",  ingredient: ["ferment", "plant"], format: "liquid", reg: "label",    channel: ["d2c", "conv"],       strategy: "subs" },
+  cardio:    { category: "hfunc",    ingredient: ["plant", "marine"], format: "tablet", reg: "hfunc-i",  channel: ["d2c", "phar"],        strategy: "premium" },
+  bone:      { category: "senior",   ingredient: ["dairy", "plant"],  format: "powder", reg: "seniorks", channel: ["nursing", "d2c"],     strategy: "value" },
+  renal:     { category: "fsmp",     ingredient: ["plant", "syn"],    format: "liquid", reg: "fsmp",     channel: ["hospital"],           strategy: "reim" },
+  cancer:    { category: "fsmp",     ingredient: ["dairy", "syn"],    format: "liquid", reg: "fsmp",     channel: ["hospital"],           strategy: "reim" },
+  dysph:     { category: "senior",   ingredient: ["dairy", "plant"],  format: "jelly",  reg: "seniorks", channel: ["nursing", "hospital"], strategy: "value" },
+  sleep:     { category: "hfunc",    ingredient: ["herbal", "func"], format: "gum",    reg: "hfunc-i",  channel: ["d2c"],                strategy: "subs" },
+  beauty:    { category: "general",  ingredient: ["marine", "ferment"], format: "jelly", reg: "label",   channel: ["d2c", "mart"],        strategy: "premium" },
 };
 
-// ---------- 규칙 테이블 2: 생애주기 보정 (조건 추가 · 포맷/채널/전략 override) ----------
+// ---------- 규칙 테이블 2: 생애주기 보정 (카테고리/포맷/채널/전략 override) ----------
 interface LifecycleAdj {
-  addCondition?: string[];
+  category?: string;
   format?: string;
   channel?: string[];
   strategy?: string;
 }
 const LIFECYCLE_ADJUST: Record<string, LifecycleAdj> = {
-  infant: { addCondition: ["immune"], format: "liquid", channel: ["phar", "hospital"] },
-  child:  { addCondition: ["immune"] },
-  adult:  { addCondition: ["gut"] },
-  preg:   { addCondition: ["bone"], format: "powder" },
-  middle: { addCondition: ["cardio"] },
-  senior: { addCondition: ["sarco", "bone", "cog"], format: "jelly", channel: ["nursing", "hospital"] },
-  super:  { addCondition: ["dysph", "sarco"], format: "jelly", channel: ["nursing"] },
+  infant: { category: "infant", format: "liquid", channel: ["phar", "hospital"] },
+  child:  {},
+  adult:  {},
+  preg:   { format: "powder" },
+  middle: {},
+  senior: { category: "senior", format: "jelly", channel: ["nursing", "hospital"] },
+  super:  { category: "senior", format: "jelly", channel: ["nursing"] },
   all:    {},
 };
 
@@ -106,13 +110,20 @@ function dedupCap<T>(arr: T[], cap: number): T[] {
   return Array.from(new Set(arr)).slice(0, cap);
 }
 
-export function computeRuleRecommendation(category: string, lifecycle: string): AxisRule {
-  const base = CATEGORY_DEFAULTS[category] || CATEGORY_DEFAULTS.hfunc;
+export function computeRuleRecommendation(lifecycle: string, condition: string[]): AxisRule {
+  const primary = condition[0] || "metabolic";
+  const base = CONDITION_DEFAULTS[primary] || CONDITION_DEFAULTS.metabolic;
   const adj = LIFECYCLE_ADJUST[lifecycle] || {};
 
+  // 건강이슈를 여러 개 고른 경우, 각 이슈의 추천 원료를 합쳐서 제시
+  const mergedIngredients = dedupCap(
+    condition.flatMap((c) => (CONDITION_DEFAULTS[c] || base).ingredient),
+    3
+  );
+
   return {
-    condition: dedupCap([...base.condition, ...(adj.addCondition || [])], 3),
-    ingredient: dedupCap(base.ingredient, 3),
+    category: adj.category || base.category,
+    ingredient: mergedIngredients.length ? mergedIngredients : base.ingredient,
     format: adj.format || base.format,
     reg: base.reg,
     channel: dedupCap([...(adj.channel || []), ...base.channel], 2),
@@ -121,18 +132,18 @@ export function computeRuleRecommendation(category: string, lifecycle: string): 
 }
 
 // ---------- Fallback 이유 문장 (LLM 실패 시 즉시 대체) ----------
-export function buildFallbackReason(axis: RecAxis, category: string, lifecycle: string, rec: AxisRule): string {
-  const catL = label("category", category);
+export function buildFallbackReason(axis: RecAxis, lifecycle: string, condition: string[], rec: AxisRule): string {
   const lifeL = label("lifecycle", lifecycle);
+  const condL = condition.map((c) => label("condition", c)).join("·");
   switch (axis) {
-    case "condition":
-      return `${catL} × ${lifeL} 조합에서는 ${rec.condition.map((c) => label("condition", c)).join("·")} 이슈가 임상적으로 가장 관련도가 높습니다.`;
+    case "category":
+      return `${lifeL} × ${condL} 조합에는 ${label("category", rec.category)} 카테고리가 규제·시장 적합도 측면에서 가장 알맞습니다.`;
     case "ingredient":
-      return `해당 적응증 대응에는 ${rec.ingredient.map((i) => label("ingredient", i)).join("·")} 원료 조합이 배합 안정성과 근거 확보에 유리합니다.`;
+      return `${condL} 이슈 대응에는 ${rec.ingredient.map((i) => label("ingredient", i)).join("·")} 원료 조합이 배합 안정성과 근거 확보에 유리합니다.`;
     case "format":
       return `${lifeL} 대상 특성상 ${label("format", rec.format)} 제형이 관능·순응도·물류 측면에서 적합합니다.`;
     case "reg":
-      return `${catL} 카테고리는 ${label("reg", rec.reg)} 경로가 표준적인 인허가 절차입니다.`;
+      return `${label("category", rec.category)} 카테고리는 ${label("reg", rec.reg)} 경로가 표준적인 인허가 절차입니다.`;
     case "channel":
       return `${rec.channel.map((c) => label("channel", c)).join("·")} 채널이 이 조합의 초기 진입 CAC·계약 안정성 측면에서 유리합니다.`;
     case "strategy":
@@ -144,18 +155,20 @@ export function buildFallbackReason(axis: RecAxis, category: string, lifecycle: 
 async function generateReason(
   env: LlmEnv,
   axis: RecAxis,
-  category: string,
   lifecycle: string,
+  condition: string[],
   rec: AxisRule
 ): Promise<{ agent: AgentId; text: string; source: "live" | "fallback" }> {
   const agentId = REC_AXIS_AGENT[axis];
   const persona = AGENT_PERSONAS[agentId];
-  const fallback = buildFallbackReason(axis, category, lifecycle, rec);
+  const fallback = buildFallbackReason(axis, lifecycle, condition, rec);
 
   const axisValueLabel =
-    axis === "condition" || axis === "ingredient" || axis === "channel"
+    axis === "ingredient" || axis === "channel"
       ? (rec[axis] as string[]).map((v) => label(axis, v)).join("·")
       : label(axis, rec[axis] as string);
+
+  const condLabel = condition.map((c) => label("condition", c)).join("·");
 
   try {
     const msg = await callAgentLlm(
@@ -168,7 +181,7 @@ async function generateReason(
 성격: ${persona.persona}
 말투: ${persona.toneNote}
 
-지금은 STAGE 00 브리프 단계입니다. 사용자가 제품 카테고리 "${label("category", category)}"와 생애주기 "${label("lifecycle", lifecycle)}"를 선택했고, 당신의 담당 축에 "${axisValueLabel}"를 추천하려 합니다. 왜 이 추천이 타당한지 1문장(50자 내외)으로 짧게 설명하세요. 인사말·이모지·따옴표 없이 이유 문장만 출력하세요.`,
+지금은 STAGE 00 브리프 단계입니다. 사용자가 생애주기 "${label("lifecycle", lifecycle)}"와 건강이슈 "${condLabel}"를 선택했고, 당신의 담당 축에 "${axisValueLabel}"를 추천하려 합니다. 왜 이 추천이 타당한지 1문장(50자 내외)으로 짧게 설명하세요. 인사말·이모지·따옴표 없이 이유 문장만 출력하세요.`,
         },
         { role: "user", content: "추천 이유를 한 문장으로 말해주세요." },
       ],
@@ -188,13 +201,13 @@ export interface BriefRecommendResult {
 
 export async function getBriefRecommendation(
   env: LlmEnv,
-  category: string,
-  lifecycle: string
+  lifecycle: string,
+  condition: string[]
 ): Promise<BriefRecommendResult> {
-  const rec = computeRuleRecommendation(category, lifecycle);
-  const axes: RecAxis[] = ["condition", "ingredient", "format", "reg", "channel", "strategy"];
+  const rec = computeRuleRecommendation(lifecycle, condition);
+  const axes: RecAxis[] = ["category", "ingredient", "format", "reg", "channel", "strategy"];
 
-  const results = await Promise.all(axes.map((axis) => generateReason(env, axis, category, lifecycle, rec)));
+  const results = await Promise.all(axes.map((axis) => generateReason(env, axis, lifecycle, condition, rec)));
 
   const reasons = {} as BriefRecommendResult["reasons"];
   axes.forEach((axis, i) => {

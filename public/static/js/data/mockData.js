@@ -10,31 +10,30 @@ window.PHYTO_DATA = {
     category: "특수의료용도식품",
     subcategory: "당뇨환자용 영양조제식품",
     regClass: "식약처 고시 제2023-XX호",
+    targetPrice: 45000,           // 24팩 박스 목표 판가 (경쟁 포지셔닝 맵 · 매트릭스 표시용)
+    targetEvidenceStrength: 8.8,  // 목표 근거강도 (경쟁 포지셔닝 맵 Y축)
+    positioningSpec: "이소말툴로스 22g + WPI 10g + MUFA",
+    positioningClaim: "저GI · 근감소 예방 · 저나트륨",
+    positioningRating: 4.7,
+    positioningChannel: "병원 → D2C",
   },
 
   // Step 1: 시장조사
   // ※ 시장 규모(domestic/global)와 context.prevalence는 실제 공개 출처(sources.js 참조) 확인.
-  //   segments/trends/channels는 공개 세그먼트 통계 부재로 Agent 추정치(agent_estimate)임을 명시.
+  //   segments/channels는 공개 세그먼트 통계 부재로 Agent 추정치(agent_estimate)임을 명시.
   market: {
+    headerTitle: "특수의료용도식품 · 당뇨환자용 시장",
+    headerDesc: "급여화 논의·고령화·당뇨 유병률 상승 · 병원·요양시설 B2B 65% · 경쟁 SKU 벤치마킹 포함",
     domestic: { size: 6374, unit: "억원", cagr: 12.8, year: 2024, sourceKey: "rda_fsmp_market", cagrNote: "2024→2033 성장분 환산 (RDA 발표치 기반 역산)" },
     global: { size: 25.5, unit: "십억USD", cagr: 5.1, year: 2025, sourceKey: "medicalfoods_global" },
     segmentsSourceKey: "agent_estimate",
     channelsSourceKey: "agent_estimate",
-    trendsSourceKey: "agent_estimate",
     segments: [
       { label: "당뇨환자용 영양조제식품", share: 34, growth: 16.2, hot: true },
       { label: "고령친화 균형영양식", share: 26, growth: 18.4, hot: true },
       { label: "암환자용 영양보충", share: 18, growth: 12.1 },
       { label: "신장질환용 영양식", share: 12, growth: 8.7 },
       { label: "연하곤란·점도조절식", share: 10, growth: 22.3, hot: true },
-    ],
-    trends: [
-      { q: "1Q24", diabetes: 42, oncol: 22, renal: 18, dysphagia: 20 },
-      { q: "2Q24", diabetes: 48, oncol: 26, renal: 20, dysphagia: 26 },
-      { q: "3Q24", diabetes: 55, oncol: 29, renal: 22, dysphagia: 33 },
-      { q: "4Q24", diabetes: 62, oncol: 32, renal: 24, dysphagia: 41 },
-      { q: "1Q25", diabetes: 71, oncol: 36, renal: 27, dysphagia: 52 },
-      { q: "2Q25", diabetes: 82, oncol: 40, renal: 29, dysphagia: 64 },
     ],
     channels: [
       { name: "병원·의료기관", share: 38, cac: "낮음" },
@@ -52,25 +51,8 @@ window.PHYTO_DATA = {
     },
   },
 
-  // Step 2: 환자 프로파일링
+  // Step 2: 영양 기준 설정 + 맞춤 기능성 도출
   target: {
-    persona: {
-      name: "이성재 (62세)",
-      job: "은퇴 · 자영업",
-      condition: "2형 당뇨 12년차 · HbA1c 7.8% · 경증 신부전 초기",
-      symptoms: ["식후 혈당 스파이크", "체중감소", "근감소증(사르코페니아)", "식사 준비 부담", "저작 저하"],
-      meds: "메트포르민 · SGLT2 억제제",
-      family: "부부 2인 가구 · 자녀 격주 방문",
-      channel: "종합병원 외래 · 약국 · 온라인 (자녀 대리구매)",
-    },
-    painPoints: [
-      { pain: "식후 혈당 스파이크", freq: 82, severity: 8.6, unmet: 7.9 },
-      { pain: "체중·근육량 감소", freq: 71, severity: 8.2, unmet: 8.4 },
-      { pain: "식사 준비·계산 부담", freq: 78, severity: 7.4, unmet: 8.1 },
-      { pain: "저혈당 위험 (야간)", freq: 54, severity: 8.9, unmet: 7.2 },
-      { pain: "미량영양소 결핍", freq: 62, severity: 6.8, unmet: 6.9 },
-      { pain: "저작·연하 저하", freq: 41, severity: 7.1, unmet: 7.8 },
-    ],
     // ※ 아래 6건은 PubMed 등재 확인 완료(실제 논문). effect는 원문 초록 결과를 그대로 반영 —
     //   일부는 통계적으로 유의하지 않거나(null) 소규모 표본인 점까지 정직하게 표기함.
     papersSearchNote: "PubMed(pubmed.ncbi.nlm.nih.gov) 키워드 검색 · 수동 초록 검토로 채택",
@@ -135,11 +117,75 @@ window.PHYTO_DATA = {
 
   // Step 3: 경쟁 분석
   competitors: [
-    { brand: "A사 뉴케어DM", format: "액상 200ml", key: "이소말툴로스 24g · 단백 12g", price: 42000, size: "24팩/박스", claim: "혈당 관리용", rating: 4.3, reviews: 5820, channel: "병원·D2C" },
-    { brand: "B사 그린비아DM", format: "분말스틱", key: "저GI 복합탄수 · 크롬", price: 38000, size: "30포/박스", claim: "당뇨 균형영양", rating: 4.1, reviews: 3140, channel: "약국·D2C" },
-    { brand: "C사 인슐렌", format: "액상 250ml", key: "MUFA 강화 · 식이섬유 6g", price: 48000, size: "24팩/박스", claim: "당뇨환자 영양", rating: 4.4, reviews: 4210, channel: "요양시설·병원" },
-    { brand: "D사 글루세나", format: "액상 237ml", key: "이소말툴로스 + MUFA", price: 54000, size: "24팩/박스", claim: "혈당 안정화", rating: 4.6, reviews: 8940, channel: "글로벌·병원" },
-    { brand: "E사 메디케어D", format: "액상 200ml", key: "표준 균형영양 + 크롬", price: 39000, size: "24팩/박스", claim: "당뇨 영양보충", rating: 4.0, reviews: 2670, channel: "요양시설" },
+    { brand: "A사 뉴케어DM", format: "액상 200ml", key: "이소말툴로스 24g · 단백 12g", price: 42000, size: "24팩/박스", claim: "혈당 관리용", rating: 4.3, reviews: 5820, channel: "병원·D2C", evidenceStrength: 6.4 },
+    { brand: "B사 그린비아DM", format: "분말스틱", key: "저GI 복합탄수 · 크롬", price: 38000, size: "30포/박스", claim: "당뇨 균형영양", rating: 4.1, reviews: 3140, channel: "약국·D2C", evidenceStrength: 5.2 },
+    { brand: "C사 인슐렌", format: "액상 250ml", key: "MUFA 강화 · 식이섬유 6g", price: 48000, size: "24팩/박스", claim: "당뇨환자 영양", rating: 4.4, reviews: 4210, channel: "요양시설·병원", evidenceStrength: 7.6 },
+    { brand: "D사 글루세나", format: "액상 237ml", key: "이소말툴로스 + MUFA", price: 54000, size: "24팩/박스", claim: "혈당 안정화", rating: 4.6, reviews: 8940, channel: "글로벌·병원", evidenceStrength: 8.7 },
+    { brand: "E사 메디케어D", format: "액상 200ml", key: "표준 균형영양 + 크롬", price: 39000, size: "24팩/박스", claim: "당뇨 영양보충", rating: 4.0, reviews: 2670, channel: "요양시설", evidenceStrength: 5.8 },
+  ],
+
+  // Step 1: 리뷰 시그널 (긍정/부정 키워드 워드클라우드)
+  reviews: {
+    positive: [
+      {t:"혈당 안정", w: 44},{t:"식후 완만", w: 38},{t:"의사 추천", w: 34},
+      {t:"편의성", w: 28},{t:"급여지원", w: 22},{t:"저작 부담↓", w: 32},
+      {t:"체중 유지", w: 20},{t:"부담 없는 맛", w: 24},
+    ],
+    negative: [
+      {t:"인공감미료", w: 40},{t:"가격 부담", w: 36},{t:"단조로운 맛", w: 32},
+      {t:"환자만 별도식", w: 28},{t:"급여 미지원", w: 30},{t:"질감·목넘김", w: 24},
+      {t:"장기복용 어려움", w: 22},{t:"포장 폐기", w: 16},
+    ],
+  },
+
+  // Step 1: 컨셉 도출 & POD 발굴 (커뮤니티 LDA 토픽 + Pain Point + POD)
+  concept: {
+    sourceKey: "community_lda",
+    sourceLabel: "실측 소규모표본",
+    sourceNote: "네이버 카페 \"당뇨와건강\" 후기·체험단 공개 게시글 12건 · 형태소분석 + LDA 토픽모델링",
+    sampleBadge: "n=12 · 실측 표본",
+    topics: [
+      {
+        id: "A", name: "혈당관리 · CGM 루틴", docs: 5, totalDocs: 12, color: "us",
+        kws: [
+          {t:"혈당", w:100},{t:"잡곡밥", w:32},{t:"관리", w:27},{t:"식이섬유", w:24},
+          {t:"연속혈당측정기", w:22},{t:"단백질", w:22},{t:"현미", w:20},{t:"루피니빈", w:17},{t:"렌틸콩", w:15},
+        ],
+      },
+      {
+        id: "B", name: "저당 간식 대체", docs: 4, totalDocs: 12, color: "avg",
+        kws: [
+          {t:"무슈콘", w:100},{t:"스콘", w:67},{t:"식단", w:66},{t:"탄수화물", w:53},
+          {t:"단백질", w:52},{t:"아몬드", w:48},{t:"밀가루", w:48},{t:"저당", w:48},{t:"치즈", w:48},{t:"부담", w:48},
+        ],
+      },
+      {
+        id: "C", name: "환자용 영양식 대용식", docs: 3, totalDocs: 12, color: "target",
+        kws: [
+          {t:"케어", w:100},{t:"식사", w:88},{t:"아침", w:88},{t:"그린비아", w:76},
+          {t:"정식품", w:63},{t:"대용", w:63},{t:"환자", w:51},{t:"필요", w:51},{t:"영양", w:39},
+        ],
+      },
+    ],
+    painPoints: [
+      { label: "대용식", text: "맛이 단조롭다는 반복 불만 (Topic C)" },
+      { label: "저당 간식", text: "저당이어도 여전히 심리적 부담 (Topic B)" },
+      { label: "관리 루틴", text: "숫자(혈당수치) 의존형 관리의 피로감 (Topic A)" },
+    ],
+    pod: "숫자에 의존하지 않고도 맛으로 매 끼니 혈당 안정을 체감하는 액상 대용식",
+    podBold: ["맛", "혈당 안정"],
+    conclusion: "당뇨환자용 FSMP 6분기 연속 >15% 성장 · 60대+ 가정 대체식 수요 D2C로 확산 → 병원 우선 진입 → D2C 확장 권장",
+    conclusionBold: ["당뇨환자용 FSMP 6분기 연속 >15% 성장", "병원 우선 진입 → D2C 확장"],
+  },
+
+  // Step 1: 영양 조성 비교 (GLUCARE-M vs 경쟁 평균 vs KDA 권고)
+  nutritionCompare: [
+    { label: "단백질 (g)",       our: 13, avg: 9.8, target: 12, max: 18 },
+    { label: "저GI 탄수 (g)",     our: 28, avg: 22,  target: 25, max: 35 },
+    { label: "MUFA 지방 (g)",     our: 6,  avg: 3.4, target: 5,  max: 10 },
+    { label: "식이섬유 (g)",       our: 6,  avg: 4.2, target: 5,  max: 10 },
+    { label: "나트륨 (mg, 낮을수록↑)", our: 180, avg: 260, target: 200, max: 400, inverse: true },
+    { label: "당류 (g, 낮을수록↑)", our: 2, avg: 8, target: 5, max: 15, inverse: true },
   ],
 
   // Step 4: 배합설계 (초안) — 200ml 액상 1팩 기준
@@ -147,6 +193,10 @@ window.PHYTO_DATA = {
     servingSize: 200, // ml per pack
     servingsPerBox: 24,
     kcalPerServing: 200,
+    // 저GI 추정식: giBaseline - (해당 원료량 / 총 탄수량) * giWeight
+    giBaseline: 75,
+    giIngredientId: "iso",
+    giWeight: 45,
     ingredients: [
       // amount는 g 단위 (액상), price는 원/g
       { id: "iso",  name: "이소말툴로스 (저GI 탄수)",        amount: 22, unit: "g", role: "탄수",  price: 8,   moq: 100, yieldPct: 99 },
@@ -164,6 +214,26 @@ window.PHYTO_DATA = {
     ],
     flavors: ["바닐라", "커피", "곡물", "무향"],
     formats: ["액상팩 200ml", "액상팩 250ml", "분말스틱", "액상 리큐베이스"],
+    // 기능성 · 임상 근거 바(EffBar) 4개 — 원료 id 기반 범용 공식 (합산 가중치, id 하나 또는 ids 배열)
+    efficacyClaims: [
+      { label: "식후혈당 완만화 (저GI)", target: "이소말툴로스 ≥20g + 식이섬유 ≥5g",
+        parts: [{ id: "iso", divisor: 22, weight: 60 }, { id: "rmd", divisor: 6, weight: 40 }] },
+      { label: "근감소증 예방 (고품질 단백)", target: "유청+카제인 총 ≥12g · 류신 ≥2g",
+        parts: [{ role: "단백", divisor: 13, weight: 100 }] },
+      { label: "지질 관리 (MUFA 비중)", target: "MUFA ≥5g · MUFA/전지방 >2/3",
+        parts: [{ id: "mufa", divisor: 6, weight: 100 }] },
+      { label: "미량영양소 강화 (26종 프리믹스)", target: "비타민·미네랄 RDA 25% 이상",
+        parts: [{ id: "vm", divisor: 1.2, weight: 100 }] },
+    ],
+    // 관능 프로파일(SensoryRadar) 6축 — 동일한 parts 기반 범용 공식(weight는 음수로 감산 가능)
+    sensoryAxes: [
+      { label: "단맛", parts: [{ id: "iso", divisor: 40, weight: 35 }, { id: "sw", divisor: 1, weight: 65 }] },
+      { label: "커피/바닐라 향", parts: [{ id: "flav", divisor: 2, weight: 70 }], flavorBonus: 25 },
+      { label: "우유맛", parts: [{ ids: ["wpi", "cas"], divisor: 26, weight: 100 }] },
+      { label: "감미료 잔미", parts: [{ id: "sw", divisor: 1, weight: 100 }] },
+      { label: "점도·목넘김", parts: [{ ids: ["mufa", "mct", "emul"], divisor: 18.8, weight: 100 }] },
+      { label: "이취(콩·비린맛)", parts: [{ ids: ["wpi", "cas"], divisor: 26, weight: 55 }, { id: "flav", divisor: 2, weight: -25 }] },
+    ],
   },
 
   // Step 5: 원가 파라미터

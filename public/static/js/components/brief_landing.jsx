@@ -1,6 +1,6 @@
 // STAGE 00 · Brief Landing — 앱 진입 화면
 // v2: "선택형" → "AI 추천형"
-//   1) 사용자는 리드 축(카테고리·생애주기) 2개만 고른다.
+//   1) 사용자는 리드 축(생애주기·건강이슈) 2개만 고른다.
 //   2) 서버(/api/brief/recommend)가 규칙 테이블로 나머지 6개 축을 추천하고,
 //      담당 Agent 페르소나가 LLM으로 추천 이유를 실시간 생성한다.
 //   3) 사용자는 추천된 값을 그대로 쓰거나 자유롭게 수정해서 검토만 하면 된다.
@@ -8,7 +8,7 @@
 
 const { useState, useEffect, useMemo, useRef } = React;
 
-const REC_AXES = ["condition", "ingredient", "format", "reg", "channel", "strategy"];
+const REC_AXES = ["category", "ingredient", "format", "reg", "channel", "strategy"];
 
 // ---------- 유틸: 스코어 계산 ----------
 function calcScores(sel) {
@@ -31,8 +31,8 @@ function calcScores(sel) {
   return out;
 }
 
-function recKey(category, lifecycle) {
-  return category && lifecycle ? `${category}|${lifecycle}` : null;
+function recKey(lifecycle, condition) {
+  return lifecycle && condition && condition.length ? `${lifecycle}|${[...condition].sort().join(",")}` : null;
 }
 
 // ---------- 우측: 실시간 Agent 반응 스트림 ----------
@@ -68,8 +68,8 @@ function BriefAgentStream({ events, agents }) {
           <div className="brief-agent-empty">
             <div className="brief-agent-empty-dot pulse"></div>
             <div className="brief-agent-empty-txt">
-              카테고리 · 생애주기 선택 시 AI 추천이 시작됩니다
-              <span className="mono">try: 카테고리 → 생애주기</span>
+              생애주기 · 건강이슈 선택 시 AI 추천이 시작됩니다
+              <span className="mono">try: 생애주기 → 건강이슈</span>
             </div>
           </div>
         )}
@@ -185,13 +185,13 @@ function AxisSection({ axis, selected, onToggle, defaultOpen, aiReason, aiAgentI
 }
 
 // ---------- 추천 배너 (리드 축 선택 직후 ~ 추천 완료까지) ----------
-function RecommendationBanner({ status, catLabel, lifeLabel, onRetry, onManual }) {
+function RecommendationBanner({ status, lifeLabel, condLabel, onRetry, onManual }) {
   if (status === "loading") {
     return (
       <div className="brief-rec-banner brief-rec-loading">
         <div className="thinking-dots"><span></span><span></span><span></span></div>
         <div className="brief-rec-banner-text">
-          <strong>{catLabel} × {lifeLabel}</strong> 조합을 5명의 Agent가 분석해 나머지 6개 축을 추천하고 있습니다…
+          <strong>{lifeLabel} × {condLabel}</strong> 조합을 분석해 나머지 6개 축을 추천하고 있습니다…
         </div>
       </div>
     );
@@ -209,7 +209,7 @@ function RecommendationBanner({ status, catLabel, lifeLabel, onRetry, onManual }
     return (
       <div className="brief-rec-banner brief-rec-done">
         <span className="brief-rec-icon">✦</span>
-        <div className="brief-rec-banner-text">AI 추천이 아래 6개 축에 적용되었습니다. 필요한 부분만 자유롭게 조정하세요.</div>
+        <div className="brief-rec-banner-text">AI 추천이 완료되었습니다. 준비되면 시작하세요.</div>
         <button className="brief-btn-ghost brief-rec-retry" onClick={onRetry}>다시 추천받기</button>
       </div>
     );
@@ -217,84 +217,19 @@ function RecommendationBanner({ status, catLabel, lifeLabel, onRetry, onManual }
   return null;
 }
 
-// ---------- 하단 요약 · 스코어 게이지 ----------
-function ScoreBar({ label, value, tone = "up", suffix = "" }) {
-  const pct = Math.round(value * 100);
-  const cls = tone === "down" ? "score-down" : tone === "warn" ? "score-warn" : "score-up";
+function BriefSummary({ canStart, loading, onStart, onReset }) {
+  const disabled = !canStart || loading;
   return (
-    <div className={`brief-score ${cls}`}>
-      <div className="brief-score-head">
-        <span className="brief-score-label">{label}</span>
-        <span className="brief-score-val mono">{pct}<span className="brief-score-unit">/100</span></span>
-      </div>
-      <div className="brief-score-track">
-        <div className="brief-score-fill" style={{width: `${pct}%`}}></div>
-        <div className="brief-score-ticks">
-          {[20,40,60,80].map(t => <span key={t} style={{left: `${t}%`}}></span>)}
-        </div>
-      </div>
-      <div className="brief-score-legend mono">{suffix}</div>
-    </div>
-  );
-}
-
-function BriefSummary({ sel, scores, canStart, missingAxes, onStart, onReset }) {
-  const readablePairs = [];
-  window.BRIEF_AXES.forEach(ax => {
-    const val = sel[ax.id];
-    if (!val || (Array.isArray(val) && !val.length)) return;
-    const vals = Array.isArray(val) ? val : [val];
-    const labels = vals.map(v => ax.options.find(o => o.id === v)?.label).filter(Boolean);
-    if (labels.length) readablePairs.push({ ax: ax.label, val: labels.join(" · ") });
-  });
-
-  return (
-    <div className="brief-summary">
-      <div className="brief-summary-top">
-        <div className="brief-summary-left">
-          <div className="brief-summary-eyebrow mono">PROJECT BRIEF · WORKING DRAFT</div>
-          <div className="brief-summary-headline">
-            {readablePairs.length === 0 ? (
-              <span className="brief-summary-placeholder">
-                아직 정의된 축이 없습니다. 위에서 카테고리부터 선택하세요.
-              </span>
-            ) : (
-              readablePairs.map((p, i) => (
-                <span key={i} className="brief-summary-chunk">
-                  <span className="brief-summary-key mono">{p.ax}</span>
-                  <span className="brief-summary-val">{p.val}</span>
-                  {i < readablePairs.length - 1 && <span className="brief-summary-sep">·</span>}
-                </span>
-              ))
-            )}
-          </div>
-        </div>
-        <div className="brief-summary-actions">
-          <button className="brief-btn-ghost" onClick={onReset}>초기화</button>
-          <button
-            className={`brief-btn-primary ${canStart ? "" : "disabled"}`}
-            onClick={canStart ? onStart : undefined}
-            disabled={!canStart}
-          >
-            <span className="brief-btn-primary-label">5-Stage 리서치 시작</span>
-            <span className="brief-btn-primary-arrow">→</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="brief-summary-scores">
-        <ScoreBar label="근거 강도"    value={scores.evidence} tone="up"   suffix="논문·가이드라인 근거 확보 용이성" />
-        <ScoreBar label="시장 매력도"  value={scores.market}   tone="up"   suffix="시장 규모 × 성장률 × 진입 여지" />
-        <ScoreBar label="규제 난이도"  value={scores.reg_diff} tone="warn" suffix="허가 소요 기간·비용 (높을수록 부담)" />
-        <ScoreBar label="원가 부담"    value={scores.cost}     tone="down" suffix="원료·제조·물류 비중 (높을수록 부담)" />
-      </div>
-
-      {!canStart && missingAxes.length > 0 && (
-        <div className="brief-summary-missing">
-          <span className="mono">필수 축 미완:</span>
-          {missingAxes.map(m => <span key={m} className="brief-summary-missing-chip">{m}</span>)}
-        </div>
-      )}
+    <div className="brief-summary brief-summary-solo">
+      <button className="brief-btn-ghost" onClick={onReset} disabled={loading}>초기화</button>
+      <button
+        className={`brief-btn-primary ${disabled ? "disabled" : ""}`}
+        onClick={disabled ? undefined : onStart}
+        disabled={disabled}
+      >
+        <span className="brief-btn-primary-label">{loading ? "생성 중…" : "4-Stage 리서치 시작"}</span>
+        {!loading && <span className="brief-btn-primary-arrow">→</span>}
+      </button>
     </div>
   );
 }
@@ -326,12 +261,13 @@ function BriefLanding({ onLaunch }) {
   const [events, setEvents] = useState([]);
   const [activeAgents, setActiveAgents] = useState([]);
   const [presetId, setPresetId] = useState(null);
+  const [genState, setGenState] = useState("idle"); // idle | loading | error
   const eventTimerRef = useRef(0);
 
   // 추천 상태: idle(아직 시작 안함) | loading | done | error
-  // key는 "category|lifecycle" — 같은 조합에 대한 중복 호출을 막는 캐시 키 역할
+  // key는 "lifecycle|condition들" — 같은 조합에 대한 중복 호출을 막는 캐시 키 역할
   const [recState, setRecState] = useState(() => {
-    const k = recKey(sel.category, sel.lifecycle);
+    const k = recKey(sel.lifecycle, sel.condition);
     if (k) {
       const hasRest = REC_AXES.some(a => {
         const v = sel[a];
@@ -343,8 +279,6 @@ function BriefLanding({ onLaunch }) {
   });
 
   useEffect(() => { localStorage.setItem("phytolab-brief", JSON.stringify(sel)); }, [sel]);
-
-  const scores = useMemo(() => calcScores(sel), [sel]);
 
   const missingAxes = window.BRIEF_AXES.filter(ax => {
     if (!ax.required) return false;
@@ -390,21 +324,21 @@ function BriefLanding({ onLaunch }) {
   };
 
   // ---------- AI 추천 호출 ----------
-  const fetchRecommendation = async (category, lifecycle) => {
-    const key = recKey(category, lifecycle);
+  const fetchRecommendation = async (lifecycle, condition) => {
+    const key = recKey(lifecycle, condition);
     setRecState({ status: "loading", key, reasons: {} });
     try {
       const res = await fetch("/api/brief/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category, lifecycle }),
+        body: JSON.stringify({ lifecycle, condition }),
       });
       if (!res.ok) throw new Error(`status ${res.status}`);
       const data = await res.json();
 
       setSel(prev => ({
         ...prev,
-        condition: data.recommendation.condition,
+        category: data.recommendation.category,
         ingredient: data.recommendation.ingredient,
         format: data.recommendation.format,
         reg: data.recommendation.reg,
@@ -431,15 +365,15 @@ function BriefLanding({ onLaunch }) {
     }
   };
 
-  // 카테고리 · 생애주기가 모두 정해지면 자동으로 추천 호출 (프리셋 경유 시엔 건너뜀)
+  // 생애주기 · 건강이슈가 모두 정해지면 자동으로 추천 호출 (프리셋 경유 시엔 건너뜀)
   useEffect(() => {
     if (presetId) return;
-    const key = recKey(sel.category, sel.lifecycle);
+    const key = recKey(sel.lifecycle, sel.condition);
     if (!key) return;
     if (recState.key === key) return;
-    fetchRecommendation(sel.category, sel.lifecycle);
+    fetchRecommendation(sel.lifecycle, sel.condition);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sel.category, sel.lifecycle, presetId]);
+  }, [sel.lifecycle, sel.condition, presetId]);
 
   const toggle = (axisId, optId, isMulti) => {
     setSel(prev => {
@@ -465,7 +399,7 @@ function BriefLanding({ onLaunch }) {
     setEvents([]);
     eventTimerRef.current = 0;
     // 프리셋은 이미 8축이 확정된 시나리오이므로 추천 호출을 건너뛰고 done으로 표시
-    setRecState({ status: "done", key: recKey(p.axes.category, p.axes.lifecycle), reasons: {} });
+    setRecState({ status: "done", key: recKey(p.axes.lifecycle, p.axes.condition), reasons: {} });
     setTimeout(() => {
       setEvents([
         { agent: "mara",  msg: `프리셋 "${p.label}" 로드 · ${p.sub}`, tone: "info", t: "0.3" },
@@ -485,18 +419,50 @@ function BriefLanding({ onLaunch }) {
     localStorage.removeItem("phytolab-brief");
   };
 
-  const launch = () => {
+  // "기존 당뇨환자용 FSMP" 프리셋(id: diabetes)은 실제 근거(PubMed·정부 통계)가 붙은 고정 데모이므로
+  // 생성을 건너뛰고 mockData.js의 GLUCARE-M 데이터를 그대로 사용한다. 그 외에는 브리프에 맞춰 매번 새로 생성한다.
+  const launch = async () => {
+    if (presetId === "diabetes") {
+      localStorage.setItem("phytolab-brief-confirmed", JSON.stringify(sel));
+      localStorage.setItem("phytolab-launched", "1");
+      localStorage.removeItem("phytolab-generated-dataset");
+      onLaunch(sel);
+      return;
+    }
+    setGenState("loading");
+    try {
+      const res = await fetch("/api/brief/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lifecycle: sel.lifecycle, condition: sel.condition }),
+      });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const dataset = await res.json();
+      Object.assign(window.PHYTO_DATA, dataset);
+      localStorage.setItem("phytolab-generated-dataset", JSON.stringify(dataset));
+      localStorage.setItem("phytolab-brief-confirmed", JSON.stringify(sel));
+      localStorage.setItem("phytolab-launched", "1");
+      setGenState("idle");
+      onLaunch(sel);
+    } catch (err) {
+      setGenState("error");
+    }
+  };
+
+  const launchWithFallback = () => {
+    // 생성 실패 시에도 기존 GLUCARE-M 예시 데이터로 계속 진행 가능하게
     localStorage.setItem("phytolab-brief-confirmed", JSON.stringify(sel));
     localStorage.setItem("phytolab-launched", "1");
+    localStorage.removeItem("phytolab-generated-dataset");
+    setGenState("idle");
     onLaunch(sel);
   };
 
-  const leadAxes = window.BRIEF_AXES.filter(ax => ax.id === "category" || ax.id === "lifecycle");
-  const restAxes = window.BRIEF_AXES.filter(ax => ax.id !== "category" && ax.id !== "lifecycle");
-  const leadReady = !!(sel.category && sel.lifecycle);
+  const leadAxes = window.BRIEF_AXES.filter(ax => ax.id === "lifecycle" || ax.id === "condition");
+  const leadReady = !!(sel.lifecycle && sel.condition && sel.condition.length);
 
-  const catLabel = leadAxes[0].options.find(o => o.id === sel.category)?.label || "";
-  const lifeLabel = leadAxes[1].options.find(o => o.id === sel.lifecycle)?.label || "";
+  const lifeLabel = leadAxes[0].options.find(o => o.id === sel.lifecycle)?.label || "";
+  const condLabel = (sel.condition || []).map(id => leadAxes[1].options.find(o => o.id === id)?.label).filter(Boolean).join("·");
 
   return (
     <div className="brief-app" data-screen-label="00 Brief Landing">
@@ -529,8 +495,6 @@ function BriefLanding({ onLaunch }) {
           <span className="mono brief-crumb-dim">03</span>
           <span className="brief-crumb-sep">·</span>
           <span className="mono brief-crumb-dim">04</span>
-          <span className="brief-crumb-sep">·</span>
-          <span className="mono brief-crumb-dim">05</span>
         </div>
         <div className="brief-topbar-right">
           <span className="pill pill-status"><span className="dot pulse"></span><span>TEAM READY · 5/5</span></span>
@@ -540,24 +504,16 @@ function BriefLanding({ onLaunch }) {
       {/* 헤드라인 */}
       <div className="brief-hero">
         <div className="brief-hero-eyebrow mono">STAGE 00 · PROJECT BRIEF</div>
-        <h1 className="brief-hero-title">
-          카테고리와 생애주기만 고르면, <span className="brief-hero-em">나머지는 AI가</span> 추천합니다
-        </h1>
-        <div className="brief-hero-desc">
-          <strong>제품 카테고리</strong>와 <strong>생애주기</strong> 두 가지만 선택하세요.
-          5명의 전문 Agent가 건강이슈·원료·제형·규제·채널·전략 6개 축을 즉시 추천하고,
-          왜 그런지 이유까지 설명합니다. 마음에 들지 않으면 자유롭게 바꾸면 됩니다.
-        </div>
+        <h1 className="brief-hero-title">생애주기 × 건강이슈</h1>
         <BriefPresets onApply={applyPreset} current={presetId} />
       </div>
 
       {/* 본체: 좌측 축 카드 + 우측 Agent 스트림 */}
       <div className="brief-workspace">
         <div className="brief-axes-col">
-          {/* 1단계: 리드 축 (카테고리·생애주기) */}
-          <div className="brief-axes-group">
-            <div className="brief-axes-group-label mono">1 · 리드 입력 (이 2가지만 고르세요)</div>
-            {leadAxes.map((ax, i) => (
+          {/* 리드 축 (생애주기·건강이슈) — 좌우 배치 */}
+          <div className="brief-lead-grid">
+            {leadAxes.map((ax) => (
               <AxisSection
                 key={ax.id}
                 axis={ax}
@@ -568,39 +524,13 @@ function BriefLanding({ onLaunch }) {
             ))}
           </div>
 
-          {/* 2단계: AI 추천 배너 */}
           {leadReady && (
             <RecommendationBanner
               status={recState.status}
-              catLabel={catLabel}
               lifeLabel={lifeLabel}
-              onRetry={() => fetchRecommendation(sel.category, sel.lifecycle)}
+              condLabel={condLabel}
+              onRetry={() => fetchRecommendation(sel.lifecycle, sel.condition)}
             />
-          )}
-
-          {/* 3단계: 추천된 6개 축 검토 */}
-          {leadReady ? (
-            <div className="brief-axes-group">
-              <div className="brief-axes-group-label mono">2 · AI 추천 검토 (자유롭게 조정 가능)</div>
-              {restAxes.map(ax => (
-                <AxisSection
-                  key={ax.id}
-                  axis={ax}
-                  selected={sel[ax.id]}
-                  onToggle={toggle}
-                  defaultOpen={false}
-                  aiReason={recState.reasons?.[ax.id]?.text}
-                  aiAgentId={recState.reasons?.[ax.id]?.agent}
-                  locked={recState.status === "loading"}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="brief-axes-placeholder">
-              <span className="brief-axes-placeholder-icon">✦</span>
-              위에서 카테고리 · 생애주기를 선택하면 나머지 6개 축(건강이슈·원료·제형·규제·채널·전략)이
-              AI 추천과 함께 이 자리에 나타납니다.
-            </div>
           )}
         </div>
 
@@ -609,13 +539,34 @@ function BriefLanding({ onLaunch }) {
 
       {/* 하단 sticky 요약 */}
       <BriefSummary
-        sel={sel}
-        scores={scores}
         canStart={canStart}
-        missingAxes={missingAxes}
+        loading={genState === "loading"}
         onStart={launch}
         onReset={reset}
       />
+
+      {genState === "loading" && (
+        <div className="brief-gen-overlay">
+          <div className="brief-gen-box">
+            <div className="thinking-dots"><span></span><span></span><span></span></div>
+            <div className="brief-gen-text">AI가 브리프에 맞는 제품 데이터를 생성하고 있습니다…</div>
+          </div>
+        </div>
+      )}
+      {genState === "error" && (
+        <div className="brief-gen-overlay">
+          <div className="brief-gen-box brief-gen-error">
+            <span className="brief-rec-icon">⚠</span>
+            <div className="brief-gen-text">데이터 생성에 실패했습니다.</div>
+            <div className="brief-gen-actions">
+              <button className="brief-btn-ghost" onClick={launch}>다시 시도</button>
+              <button className="brief-btn-primary" onClick={launchWithFallback}>
+                <span className="brief-btn-primary-label">예시 데이터로 계속하기</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

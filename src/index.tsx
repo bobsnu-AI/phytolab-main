@@ -48,9 +48,8 @@ app.get('/', (c) => {
 <script type="text/babel" src="/static/js/shell_components.js"></script>
 <script type="text/babel" src="/static/js/steps/step1_market.jsx"></script>
 <script type="text/babel" src="/static/js/steps/step2_target.jsx"></script>
-<script type="text/babel" src="/static/js/steps/step3_analysis.jsx"></script>
-<script type="text/babel" src="/static/js/steps/step4_formula.jsx"></script>
-<script type="text/babel" src="/static/js/steps/step5_cost.jsx"></script>
+<script type="text/babel" src="/static/js/steps/step3_formula.jsx"></script>
+<script type="text/babel" src="/static/js/steps/step4_cost.jsx"></script>
 <script type="text/babel" src="/static/js/components/brief_landing.jsx"></script>
 <script type="text/babel" src="/static/js/app.js"></script>
 

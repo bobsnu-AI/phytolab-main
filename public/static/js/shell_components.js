@@ -4,11 +4,10 @@
   const { useState, useEffect, useRef } = React;
 
   const STEPS = [
-    { id: 1, key: "market", label: "시장조사", en: "Market Scan", icon: "◔" },
-    { id: 2, key: "target", label: "건강 타겟", en: "Health Target", icon: "◑" },
-    { id: 3, key: "analysis", label: "제품 분석", en: "Product Analysis", icon: "◕" },
-    { id: 4, key: "formula", label: "배합 설계", en: "Formulation", icon: "●" },
-    { id: 5, key: "cost", label: "원가 시뮬", en: "Cost Simulator", icon: "◈" },
+    { id: 1, key: "market", label: "시장·경쟁 분석", en: "Market & Competitor", icon: "◔" },
+    { id: 2, key: "nutrition", label: "영양·기능성", en: "Nutrition & Functionality", icon: "◑" },
+    { id: 3, key: "formula", label: "배합 설계", en: "Formulation", icon: "●" },
+    { id: 4, key: "cost", label: "원가 시뮬", en: "Cost Simulator", icon: "◈" },
   ];
 
   function TitleBar() {
@@ -64,7 +63,7 @@
       <nav className="stepnav">
         <div className="stepnav-header">
           <div className="stepnav-title">WORKFLOW</div>
-          <div className="stepnav-sub">5 stages · autonomous</div>
+          <div className="stepnav-sub">4 stages · autonomous</div>
         </div>
         <ol className="stepnav-list">
           {STEPS.map((s, i, arr) => {
@@ -311,7 +310,7 @@
             </div>
             <div>
               <div className="agent-title">TEAM CONVERSATION</div>
-              <div className="agent-sub mono">scripted demo · step {step}/5 · {displayedScript.length} exchanges</div>
+              <div className="agent-sub mono">scripted demo · step {step}/4 · {displayedScript.length} exchanges</div>
             </div>
           </div>
           <div className="agent-toolbar">
@@ -378,7 +377,7 @@
                 TEAM CONVERSATION
                 <span className="live-badge"><span className="live-dot"></span>LIVE</span>
               </div>
-              <div className="agent-sub mono">실시간 AI 논의 · step {step}/5 · {turns.length} exchanges</div>
+              <div className="agent-sub mono">실시간 AI 논의 · step {step}/4 · {turns.length} exchanges</div>
             </div>
           </div>
           <div className="agent-toolbar">
@@ -433,14 +432,14 @@
     const pct = total > 0 ? (approved / total) * 100 : 0;
     const reached = approved === total && total >= 3;
 
-    if (step !== 4) return null;
+    if (step !== 3) return null;
 
     return (
       <div className={`consensus-meter ${reached ? "reached" : ""}`}>
         <div className="cm-header">
           <div>
             <div className="cm-title">배합안 합의 지표</div>
-            <div className="cm-sub mono">전원 승인 시 STEP 5 오픈</div>
+            <div className="cm-sub mono">전원 승인 시 STEP 4 오픈</div>
           </div>
           <div className="cm-score mono">
             <span className="cm-num">{approved}</span>

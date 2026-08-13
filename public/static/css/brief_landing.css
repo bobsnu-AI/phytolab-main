@@ -651,12 +651,46 @@
   border-top: 1px solid var(--line);
   z-index: 10;
 }
+.brief-lead-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.brief-lead-grid .brief-axis-grid { grid-template-columns: repeat(2, 1fr); }
+.brief-lead-grid .brief-axis-head { grid-template-columns: 36px 1fr 32px; }
+.brief-lead-grid .brief-axis-lead,
+.brief-lead-grid .brief-axis-summary { display: none; }
+@media (max-width: 900px) { .brief-lead-grid { grid-template-columns: 1fr; } }
+
 .brief-summary-top {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 20px;
   align-items: flex-end;
   margin-bottom: 14px;
+  max-width: 1600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.brief-gen-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center;
+  background: oklch(from var(--bg-0) l c h / 0.85);
+  backdrop-filter: blur(4px);
+}
+.brief-gen-box {
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  padding: 32px 40px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  max-width: 360px;
+  text-align: center;
+}
+.brief-gen-text { color: var(--text-1); font-size: 14px; }
+.brief-gen-actions { display: flex; gap: 10px; margin-top: 4px; }
+.brief-gen-error .brief-rec-icon { font-size: 22px; color: var(--danger); }
+
+.brief-summary-solo {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
   max-width: 1600px;
   margin-left: auto;
   margin-right: auto;
