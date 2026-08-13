@@ -1443,3 +1443,309 @@ body::before {
   .stepnav-body, .stepnav-header > *, .stepnav-footer { display: none; }
   .stepnav { padding: 20px 6px; }
 }
+
+/* ===== Ingredient Price Lookup Panel (STAGE 04) ===== */
+.ip-lookup-panel {
+  margin-bottom: 18px;
+  background: oklch(from var(--bg-2) l c h / 0.96);
+  border: 1px solid oklch(from var(--accent) l c h / 0.3);
+  border-radius: var(--radius);
+}
+
+.ip-lookup-toggle {
+  background: oklch(from var(--accent) l c h / 0.15);
+  border: 1px solid oklch(from var(--accent) l c h / 0.4);
+  color: var(--accent);
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.ip-lookup-toggle:hover {
+  background: oklch(from var(--accent) l c h / 0.25);
+}
+
+.ip-apikey-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.ip-label { font-size: 11px; color: var(--text-3); white-space: nowrap; }
+.ip-input {
+  background: var(--bg-0);
+  border: 1px solid var(--line-strong);
+  color: var(--text-1);
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.ip-input:focus { outline: none; border-color: var(--accent); }
+.ip-input-key { flex: 1; min-width: 220px; font-family: var(--font-mono) !important; }
+.ip-input-kw { flex: 1; min-width: 180px; }
+.ip-link { font-size: 11px; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.ip-link:hover { text-decoration: underline; }
+
+.ip-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.ip-autocomplete-wrap { position: relative; flex: 1; min-width: 180px; }
+.ip-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  background: var(--bg-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.4);
+}
+.ip-sug-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.ip-sug-item:hover { background: oklch(from var(--accent) l c h / 0.12); }
+.ip-sug-meta { font-size: 10px; color: var(--text-3); }
+
+.ip-select {
+  background: var(--bg-0);
+  border: 1px solid var(--line-strong);
+  color: var(--text-1);
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  cursor: pointer;
+}
+.ip-btn {
+  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.ip-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ip-btn.loading { opacity: 0.7; }
+.ip-btn-primary { background: var(--accent); color: oklch(0.1 0.02 245); }
+.ip-btn-primary:hover:not(:disabled) { background: oklch(from var(--accent) calc(l + 0.05) c h); }
+.ip-btn-success { background: var(--success); color: oklch(0.1 0.02 175); }
+.ip-btn-success:hover:not(:disabled) { background: oklch(from var(--success) calc(l + 0.05) c h); }
+.ip-btn-apply {
+  width: 100%;
+  margin-top: 10px;
+  background: oklch(from var(--success) l c h / 0.2);
+  border: 1px solid oklch(from var(--success) l c h / 0.5);
+  color: var(--success);
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.ip-btn-apply:hover { background: oklch(from var(--success) l c h / 0.3); }
+.ip-btn-apply-light {
+  width: 100%;
+  margin-top: 8px;
+  background: oklch(from var(--accent) l c h / 0.1);
+  border: 1px solid oklch(from var(--accent) l c h / 0.3);
+  color: var(--accent);
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.ip-btn-apply-light:hover { background: oklch(from var(--accent) l c h / 0.18); }
+
+.ip-error {
+  font-size: 12px;
+  color: var(--danger);
+  background: oklch(from var(--danger) l c h / 0.1);
+  border: 1px solid oklch(from var(--danger) l c h / 0.3);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  margin-bottom: 10px;
+}
+
+/* 영양 DB 매칭 표시 */
+.ip-nutrient-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+.ip-nutrient-tag {
+  background: oklch(from var(--accent-3) l c h / 0.18);
+  color: var(--accent-3);
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.ip-nutrient-name { color: var(--text-2); font-weight: 600; }
+.ip-nutrient-item { color: var(--text-3); }
+.ip-nutrient-item b { color: var(--accent); }
+
+/* 조회 결과 */
+.ip-result { margin-top: 10px; }
+.ip-result-summary {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.ip-result-kpi {
+  background: var(--bg-3);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 90px;
+}
+.ip-result-kpi-accent { border: 1px solid oklch(from var(--accent) l c h / 0.4); }
+.ip-result-label { font-size: 10px; color: var(--text-3); }
+.ip-result-value { font-size: 15px; font-weight: 700; color: var(--text-1); }
+.ip-result-value small { font-size: 10px; font-weight: 400; color: var(--text-3); }
+.ip-result-kpi-accent .ip-result-value { color: var(--accent); }
+
+/* 시세 테이블 */
+.ip-table-wrap {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  font-size: 11px;
+}
+.ip-table-header {
+  display: grid;
+  grid-template-columns: 72px 80px 1fr 60px 60px 90px;
+  background: var(--bg-3);
+  padding: 6px 10px;
+  color: var(--text-3);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  gap: 8px;
+}
+.ip-table-row {
+  display: grid;
+  grid-template-columns: 72px 80px 1fr 60px 60px 90px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--line);
+  color: var(--text-2);
+  gap: 8px;
+  align-items: center;
+  transition: background 0.1s;
+}
+.ip-table-row:hover { background: oklch(from var(--accent) l c h / 0.05); }
+.ip-price-cell { color: var(--accent); font-weight: 600; }
+.ip-empty { font-size: 12px; color: var(--text-3); padding: 10px 0; text-align: center; }
+
+/* 동결건조 계산기 */
+.fd-calc-section {
+  margin-top: 14px;
+  padding: 14px;
+  background: var(--bg-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid oklch(from var(--accent-2) l c h / 0.2);
+}
+.fd-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-2);
+  margin-bottom: 10px;
+  letter-spacing: 0.05em;
+}
+.fd-inputs {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.fd-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.fd-hint { font-size: 9px; color: var(--text-4); }
+.fd-input {
+  background: var(--bg-0);
+  border: 1px solid var(--line-strong);
+  color: var(--text-1);
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono) !important;
+  width: 100px;
+  transition: border-color 0.15s;
+}
+.fd-input:focus { outline: none; border-color: var(--accent-2); }
+
+/* 동결건조 결과 카드 */
+.fd-result {
+  background: var(--bg-1);
+  border-radius: var(--radius-sm);
+  border: 1px solid oklch(from var(--accent-2) l c h / 0.3);
+  overflow: hidden;
+}
+.fd-result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--text-2);
+}
+.fd-result-total {
+  background: oklch(from var(--accent-2) l c h / 0.06);
+  font-weight: 600;
+  color: var(--text-1);
+}
+.fd-result-final {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: oklch(from var(--accent-2) l c h / 0.1);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-2);
+}
+.fd-result-prices {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.fd-price-kg { font-size: 15px; }
+.fd-price-g { font-size: 11px; color: var(--text-2); }
+.fd-price-kg small, .fd-price-g small { font-size: 9px; color: var(--text-3); font-weight: 400; }

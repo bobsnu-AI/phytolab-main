@@ -40,6 +40,7 @@ app.get('/', (c) => {
 <script src="/static/js/data/agents.js"></script>
 <script src="/static/js/data/agent_prompts.js"></script>
 <script src="/static/js/data/brief.js"></script>
+<script src="/static/js/data/nutrient_db.js"></script>
 
 <script src="/static/js/react_globals.js"></script>
 

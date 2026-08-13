@@ -1,4 +1,289 @@
 // Step 4: Cost Simulator — FSMP 액상 원가·판가·마진 시뮬레이터 (LIVE with FormulaContext)
+// + 농산물 공공가격 API 연동 · 동결건조 분말 원가 계산기
+
+/* ─────────────────────────────────────────────────────────
+   IngredientPriceLookup: 원료 시세 조회 패널
+   - 원료명 입력 → 공공데이터 농산물 가격 API 조회
+   - NUTRIENT_DB 수분 자동 조회
+   - 동결건조 분말 원가 계산
+   - 계산 결과 → 자사단가(₩/g)로 자동 적용 콜백
+───────────────────────────────────────────────────────── */
+function IngredientPriceLookup({ onApplyPrice }) {
+  const [keyword, setKeyword] = React.useState("");
+  const [apiKey, setApiKey] = React.useState(() => localStorage.getItem("phytolab-agro-apikey") || "");
+  const [channel, setChannel] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [result, setResult] = React.useState(null);
+  const [error, setError] = React.useState(null);
+
+  // 동결건조 계산 state
+  const [fdRawKg, setFdRawKg] = React.useState(100);
+  const [fdMoisture, setFdMoisture] = React.useState(90.0);
+  const [fdMfgCost, setFdMfgCost] = React.useState(150000);
+  const [fdResult, setFdResult] = React.useState(null);
+
+  // 자동완성
+  const [suggestions, setSuggestions] = React.useState([]);
+  const [showSug, setShowSug] = React.useState(false);
+
+  const CHANNELS = [
+    { label: "전체", value: "" },
+    { label: "소매", value: "1" },
+    { label: "중도매", value: "2" },
+    { label: "친환경", value: "3" },
+    { label: "친환경(신규)", value: "7" },
+  ];
+
+  function handleKeywordChange(e) {
+    const v = e.target.value;
+    setKeyword(v);
+    if (window.NUTRIENT_DB && v.trim().length >= 1) {
+      const sug = window.NUTRIENT_DB.searchIngredients(v.trim());
+      setSuggestions(sug);
+      setShowSug(sug.length > 0);
+    } else {
+      setShowSug(false);
+    }
+    // 수분 자동 업데이트
+    if (window.NUTRIENT_DB && v.trim()) {
+      const m = window.NUTRIENT_DB.getMoisture(v.trim());
+      setFdMoisture(m);
+    }
+  }
+
+  function selectSuggestion(name) {
+    setKeyword(name);
+    setShowSug(false);
+    if (window.NUTRIENT_DB) {
+      setFdMoisture(window.NUTRIENT_DB.getMoisture(name));
+    }
+  }
+
+  async function handleSearch() {
+    if (!keyword.trim()) { setError("원료명을 입력하세요"); return; }
+    if (!apiKey.trim()) { setError("공공데이터포털 API 키를 입력하세요"); return; }
+    setLoading(true); setError(null); setResult(null);
+    localStorage.setItem("phytolab-agro-apikey", apiKey.trim());
+    try {
+      const params = new URLSearchParams({
+        keyword: keyword.trim(),
+        apiKey: apiKey.trim(),
+        ...(channel && { channel }),
+      });
+      const res = await fetch(`/api/ingredient-price?${params.toString()}`);
+      const data = await res.json();
+      if (!data.ok) { setError(data.error || "조회 실패"); return; }
+      setResult(data);
+      // 수분 DB에서 수분 자동 업데이트
+      if (window.NUTRIENT_DB) {
+        setFdMoisture(window.NUTRIENT_DB.getMoisture(keyword.trim()));
+      }
+    } catch (e) {
+      setError("네트워크 오류: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function calcFreezeDry() {
+    if (!result || !result.avgPricePerKg) { setError("먼저 원료 시세를 조회하세요"); return; }
+    const rawUnitPrice = result.avgPricePerKg;   // ₩/kg
+    const totalRawCost = rawUnitPrice * fdRawKg;
+    const solidPct = Math.max(0, 100 - fdMoisture);
+    const powderYieldKg = fdRawKg * (solidPct / 100);
+    const totalCost = totalRawCost + fdMfgCost;
+    const powderCostPerKg = powderYieldKg > 0 ? totalCost / powderYieldKg : 0;
+    const powderCostPerG = powderCostPerKg / 1000;
+    setFdResult({ rawUnitPrice, totalRawCost, solidPct, powderYieldKg, totalCost, powderCostPerKg, powderCostPerG });
+  }
+
+  function handleApply(pricePerG) {
+    if (onApplyPrice) onApplyPrice(keyword.trim(), pricePerG);
+  }
+
+  const nutrientInfo = keyword.trim() && window.NUTRIENT_DB ? window.NUTRIENT_DB.getNutrient(keyword.trim()) : null;
+
+  return (
+    <div className="panel ip-lookup-panel">
+      <div className="panel-header">
+        <div>
+          <div className="panel-title">🌾 원료 시세 조회 · 동결건조 원가 계산기</div>
+          <div className="panel-sub">농수산물 공공가격 API · 농촌진흥청 영양 DB 연동</div>
+        </div>
+      </div>
+
+      {/* API 키 설정 */}
+      <div className="ip-apikey-row">
+        <span className="ip-label">공공데이터포털 API 키</span>
+        <input
+          type="password"
+          className="ip-input ip-input-key mono"
+          placeholder="공공데이터포털 서비스키 (data.go.kr)"
+          value={apiKey}
+          onChange={e => setApiKey(e.target.value)}
+        />
+        <a href="https://www.data.go.kr/data/15100578/openapi.do" target="_blank" rel="noopener" className="ip-link">키 발급 →</a>
+      </div>
+
+      {/* 검색 입력 */}
+      <div className="ip-search-row">
+        <div className="ip-autocomplete-wrap">
+          <input
+            type="text"
+            className="ip-input ip-input-kw"
+            placeholder="원료명 입력 (예: 브로콜리, 케일, 당근)"
+            value={keyword}
+            onChange={handleKeywordChange}
+            onFocus={() => suggestions.length && setShowSug(true)}
+            onBlur={() => setTimeout(() => setShowSug(false), 150)}
+            onKeyDown={e => e.key === "Enter" && handleSearch()}
+          />
+          {showSug && (
+            <div className="ip-suggestions">
+              {suggestions.map((s, i) => (
+                <div key={i} className="ip-sug-item" onMouseDown={() => selectSuggestion(s.name)}>
+                  <span>{s.name}</span>
+                  <span className="ip-sug-meta mono">수분 {s.moisture}g/100g</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <select className="ip-select" value={channel} onChange={e => setChannel(e.target.value)}>
+          {CHANNELS.map(ch => <option key={ch.value} value={ch.value}>{ch.label}</option>)}
+        </select>
+
+        <button className={`ip-btn ip-btn-primary ${loading ? "loading" : ""}`} onClick={handleSearch} disabled={loading}>
+          {loading ? "조회 중…" : "시세 조회"}
+        </button>
+      </div>
+
+      {error && <div className="ip-error">{error}</div>}
+
+      {/* 영양 DB 매칭 결과 */}
+      {nutrientInfo && (
+        <div className="ip-nutrient-row">
+          <span className="ip-nutrient-tag">📊 영양DB 매칭</span>
+          <span className="ip-nutrient-name">{nutrientInfo.name}</span>
+          <span className="ip-nutrient-item mono">수분 <b>{nutrientInfo.moisture}g</b>/100g</span>
+          {nutrientInfo.energy != null && <span className="ip-nutrient-item mono">에너지 <b>{nutrientInfo.energy}kcal</b></span>}
+          {nutrientInfo.protein != null && <span className="ip-nutrient-item mono">단백질 <b>{nutrientInfo.protein}g</b></span>}
+        </div>
+      )}
+
+      {/* 조회 결과 */}
+      {result && (
+        <div className="ip-result">
+          <div className="ip-result-summary">
+            <div className="ip-result-kpi">
+              <span className="ip-result-label">소매 평균 시세</span>
+              <span className="ip-result-value mono">₩{result.avgPricePerKg.toLocaleString()}<small>/kg</small></span>
+            </div>
+            {result.avgPricePerGram && (
+              <div className="ip-result-kpi ip-result-kpi-accent">
+                <span className="ip-result-label">₩/g 환산</span>
+                <span className="ip-result-value mono">₩{result.avgPricePerGram}<small>/g</small></span>
+              </div>
+            )}
+            <div className="ip-result-kpi">
+              <span className="ip-result-label">조회 건수</span>
+              <span className="ip-result-value mono">{result.latestItems.length}건</span>
+            </div>
+            <div className="ip-result-kpi">
+              <span className="ip-result-label">기간</span>
+              <span className="ip-result-value mono">{result.start}~{result.end}</span>
+            </div>
+          </div>
+
+          {/* 최신 시세 테이블 */}
+          {result.latestItems.length > 0 && (
+            <div className="ip-table-wrap">
+              <div className="ip-table-header mono">
+                <div>조사연월</div><div>유통구분</div><div>품목</div><div>등급</div><div>조사단위</div><div>1kg환산(₩)</div>
+              </div>
+              {result.latestItems.slice(0, 8).map((it, i) => (
+                <div key={i} className="ip-table-row">
+                  <div className="mono">{it.yearMonth}</div>
+                  <div>{it.channelName}</div>
+                  <div>{it.itemName}{it.varietyName ? ` (${it.varietyName})` : ""}</div>
+                  <div>{it.gradeName}</div>
+                  <div className="mono">{it.unitQty}{it.unit}</div>
+                  <div className="mono ip-price-cell">₩{it.pricePerKg.toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {result.latestItems.length === 0 && (
+            <div className="ip-empty">해당 품목의 가격 데이터가 없습니다. 키워드를 달리 입력해보세요 (예: "깐마늘" → "마늘")</div>
+          )}
+        </div>
+      )}
+
+      {/* 동결건조 분말 원가 계산기 */}
+      {result && result.avgPricePerKg > 0 && (
+        <div className="fd-calc-section">
+          <div className="fd-title">🧊 동결건조 분말 원가 계산</div>
+          <div className="fd-inputs">
+            <label className="fd-label">
+              <span>원물 투입량 (kg)</span>
+              <input type="number" className="fd-input mono" min="1" max="10000" step="1"
+                value={fdRawKg} onChange={e => setFdRawKg(+e.target.value)} />
+            </label>
+            <label className="fd-label">
+              <span>수분 함량 (%)</span>
+              <input type="number" className="fd-input mono" min="0" max="99.9" step="0.1"
+                value={fdMoisture} onChange={e => setFdMoisture(+e.target.value)} />
+              <span className="fd-hint">※ 영양DB 자동 조회</span>
+            </label>
+            <label className="fd-label">
+              <span>추가 제조원가 (₩)</span>
+              <input type="number" className="fd-input mono" min="0" step="1000"
+                value={fdMfgCost} onChange={e => setFdMfgCost(+e.target.value)} />
+            </label>
+            <button className="ip-btn ip-btn-success" onClick={calcFreezeDry}>원가 계산</button>
+          </div>
+
+          {fdResult && (
+            <div className="fd-result">
+              <div className="fd-result-row"><span>1kg 원물 단가</span><span className="mono">₩{fdResult.rawUnitPrice.toLocaleString()} /kg</span></div>
+              <div className="fd-result-row"><span>원물 {fdRawKg}kg 총 비용</span><span className="mono">₩{fdResult.totalRawCost.toLocaleString()}</span></div>
+              <div className="fd-result-row"><span>수분 {fdMoisture}% → 고형분 {fdResult.solidPct.toFixed(1)}%</span><span className="mono">분말 {fdResult.powderYieldKg.toFixed(2)} kg</span></div>
+              <div className="fd-result-row"><span>추가 제조원가</span><span className="mono">+ ₩{fdMfgCost.toLocaleString()}</span></div>
+              <div className="fd-result-row fd-result-total">
+                <span>총 생산 비용</span><span className="mono">₩{fdResult.totalCost.toLocaleString()}</span>
+              </div>
+              <div className="fd-result-final">
+                <span>동결건조 분말 최종 원가</span>
+                <div className="fd-result-prices">
+                  <span className="fd-price-kg mono">₩{Math.round(fdResult.powderCostPerKg).toLocaleString()} <small>/kg</small></span>
+                  <span className="fd-price-g mono">= ₩{fdResult.powderCostPerG.toFixed(2)} <small>/g</small></span>
+                </div>
+              </div>
+              {onApplyPrice && (
+                <button className="ip-btn ip-btn-apply" onClick={() => handleApply(fdResult.powderCostPerG)}>
+                  ✅ "{keyword}" 자사단가로 적용 (₩{fdResult.powderCostPerG.toFixed(2)}/g)
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 동결건조 미사용 시 원물 단가 직접 적용 */}
+          {result.avgPricePerGram && !fdResult && onApplyPrice && (
+            <button className="ip-btn ip-btn-apply-light" onClick={() => handleApply(result.avgPricePerGram)}>
+              원물 단가 직접 적용 (₩{result.avgPricePerGram}/g)
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   Step4Cost 메인 컴포넌트
+───────────────────────────────────────────────────────── */
 const Step4Cost = () => {
   const fPhyto = PHYTO_DATA.formula;
   const c = PHYTO_DATA.cost;
@@ -13,6 +298,9 @@ const Step4Cost = () => {
   const [localChannel, setLocalChannel] = useState("병원");
   const [localPriceMode, setLocalPriceMode] = useState("example");
   const [localCustomPrices, setLocalCustomPrices] = useState({});
+
+  // 원료 시세 패널 열기/닫기
+  const [showPriceLookup, setShowPriceLookup] = useState(false);
 
   const servingsPerBox = ctx?.servings ?? localServings;
   const setServingsPerBox = ctx?.setServings || setLocalServings;
@@ -35,7 +323,7 @@ const Step4Cost = () => {
   }));
   const priceFor = ctx?.priceFor || ((ing) => (priceMode === "custom" && customPrices[ing.id] != null) ? customPrices[ing.id] : ing.price);
 
-  // Context에서 원가 계산치 우선 사용 (단, priceMode가 로컬 폴백일 때는 재계산 필요하므로 ctx 없을 때만 ctx 값 사용)
+  // Context에서 원가 계산치 우선 사용
   const currentIngs = ctx?.ings || fPhyto.ingredients;
   const ingCostPerPack = ctx?.ingCostPerPack ?? currentIngs.reduce((s, x) => s + x.amount * priceFor(x) / (x.yieldPct/100), 0);
   const rawPerBox = ctx?.rawPerBox ?? (ingCostPerPack * servingsPerBox / (yieldOverall/100));
@@ -46,8 +334,25 @@ const Step4Cost = () => {
   const wholesale = totalCost * c.target.wholesaleMarkup;
   const marginPct = ctx?.marginPct ?? (((msrp - totalCost) / msrp) * 100);
 
-  // Step 5에서 f 참조를 formula로 rename
   const f = fPhyto;
+
+  // 원료 시세 조회 결과 → 자사단가 자동 적용 핸들러
+  function handleApplyIngredientPrice(keyword, pricePerG) {
+    // 원료 이름으로 id 매칭 시도 (부분 일치)
+    const kwLower = keyword.replace(/\s/g, "").toLowerCase();
+    const ing = f.ingredients.find(x =>
+      x.name.replace(/\s/g, "").toLowerCase().includes(kwLower) ||
+      kwLower.includes(x.name.replace(/\s/g, "").toLowerCase())
+    );
+    if (ing) {
+      // 자사 단가 모드로 전환 후 적용
+      setPriceMode("custom");
+      updateCustomPrice(ing.id, pricePerG);
+      alert(`✅ "${ing.name}" 자사단가: ₩${pricePerG.toFixed(2)}/g 적용 완료`);
+    } else {
+      alert(`ℹ️ "${keyword}"와 일치하는 배합 원료가 없습니다.\n직접 자사단가 입력 탭에서 해당 원료의 단가를 수정해주세요.`);
+    }
+  }
 
   // FSMP 채널 (병원·요양시설·급여 채널 반영)
   const channelFees = { "병원": 0.18, "요양시설": 0.15, "약국·H&B": 0.28, "온라인 D2C": 0.12, "홈쇼핑": 0.35 };
@@ -74,8 +379,16 @@ const Step4Cost = () => {
         <div className="step-badges">
           <div className="badge badge-accent"><span className="badge-k">MARGIN</span><span className="badge-v mono">{marginPct.toFixed(1)}%</span></div>
           <div className="badge"><span className="badge-k">GM/박스</span><span className="badge-v mono">₩{(msrp - totalCost).toLocaleString(undefined, {maximumFractionDigits:0})}</span></div>
+          <button className="ip-lookup-toggle" onClick={() => setShowPriceLookup(v => !v)}>
+            🌾 {showPriceLookup ? "시세조회 닫기" : "원료 시세 조회"}
+          </button>
         </div>
       </div>
+
+      {/* 원료 시세 조회 패널 (토글) */}
+      {showPriceLookup && (
+        <IngredientPriceLookup onApplyPrice={handleApplyIngredientPrice} />
+      )}
 
       <Reveal id="pricing" label="목표 MSRP · 판가 포지셔닝" agent="mara">
       <div className="cost-kpi-row">
@@ -180,7 +493,8 @@ const Step4Cost = () => {
             </div>
             {priceMode === "custom" && (
               <div className="pm-note">
-                실제 공급업체 계약단가를 아래에 직접 입력하세요. 비워두면 예시 단가가 참고치로 사용됩니다. 입력값은 이 브라우저 세션에만 저장되며 외부로 전송되지 않습니다.
+                실제 공급업체 계약단가를 아래에 직접 입력하세요. 비워두면 예시 단가가 참고치로 사용됩니다.
+                상단 <b>🌾 원료 시세 조회</b> 버튼으로 공공가격 API에서 시세를 조회해 자동 적용할 수 있습니다.
               </div>
             )}
 
