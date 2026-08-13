@@ -18,9 +18,8 @@ export interface ConfirmedBrief {
 }
 
 const SYSTEM_PROMPT =
-  "당신은 Phytolab.AI의 제품 데이터 생성 엔진입니다. 사용자가 지정한 제품 브리프에 맞는 현실적인 시연용 데이터를 생성합니다. " +
-  "반드시 유효한 JSON만 출력하세요. 설명, 마크다운 코드펜스, 인사말 없이 JSON 객체 하나만 출력합니다. " +
-  "숫자는 현실적인 범위로, 한국어 텍스트는 자연스러운 존댓말/명사형으로 작성하세요.";
+  "JSON 생성 전용 엔진입니다. 유효한 JSON 객체 하나만 출력하세요. " +
+  "코드펜스(```), 설명, 인사말 절대 금지. 숫자는 현실적 범위로, 한국어는 명사형으로.";
 
 function briefDescription(brief: ConfirmedBrief): string {
   const parts: string[] = [];
@@ -49,35 +48,121 @@ async function callJsonLlm(env: LlmEnv, userPrompt: string, maxTokens: number): 
     { role: "user" as const, content: userPrompt },
   ];
   try {
-    const raw = await callAgentLlm(env, messages, { maxTokens });
+    const raw = await callAgentLlm(env, messages, { maxTokens, timeoutMs: 25000 });
     return extractJson(raw);
   } catch (err) {
-    // 1회 재시도 (더 짧고 단호한 지시로)
-    const raw = await callAgentLlm(
-      env,
-      [...messages, { role: "user" as const, content: "JSON 파싱에 실패했습니다. 오직 유효한 JSON 객체만, 다른 텍스트 없이 다시 출력하세요." }],
-      { maxTokens }
-    );
-    return extractJson(raw);
+    // 1회 재시도
+    try {
+      const raw = await callAgentLlm(
+        env,
+        [...messages, { role: "user" as const, content: "오직 JSON만 출력하세요." }],
+        { maxTokens, timeoutMs: 25000 }
+      );
+      return extractJson(raw);
+    } catch {
+      throw err;
+    }
   }
 }
 
-// ---------- Call A: product + market + competitors + reviews + concept ----------
-async function generatePartA(env: LlmEnv, brief: ConfirmedBrief) {
-  const prompt = `제품 브리프: ${briefDescription(brief)}
+// ---------- Call A1: product + market (context 포함) ----------
+async function generatePartA1(env: LlmEnv, brief: ConfirmedBrief) {
+  const prompt = `브리프: ${briefDescription(brief)}
 
-이 브리프에 맞는 가상의 시연용 제품 하나를 설계하고, 아래 JSON 스키마로 시장·경쟁·리뷰·컨셉 데이터를 생성하세요.
+아래 JSON 스키마를 채워 출력하세요. 숫자 자리에는 실제 숫자를, 문자 자리에는 실제 문자열을 넣으세요.
 
 {
-  "product": { "codename": "영문 제품 코드네임 (예: XXXX-1)", "tagline": "한 줄 슬로건", "target": "타깃 설명", "format": "제형+용량", "category": "카테고리 국문명", "subcategory": "세부 카테고리", "regClass": "규제 근거(가상 고시번호 형태)", "targetPrice": 박스가격(원, 15000-80000), "targetEvidenceStrength": 근거강도(0-10, 소수1자리, 8이상), "positioningSpec": "핵심 스펙 한 줄", "positioningClaim": "클레임 한 줄", "positioningRating": 평점(4.0-4.9), "positioningChannel": "주 채널 경로" },
-  "market": { "headerTitle": "시장 제목 한 줄", "headerDesc": "시장 설명 한 줄", "domestic": {"size": 국내시장규모숫자, "unit": "억원", "cagr": 성장률(5-20), "year": 2024, "cagrNote": "성장 설명 한 줄"}, "global": {"size": 글로벌시장규모숫자, "unit": "십억USD", "cagr": 성장률(3-15), "year": 2025}, "segments": [5개 {"label":"세그먼트명","share":점유율(5-40),"growth":성장률(5-25),"hot":true또는false}], "channels": [4개 {"name":"채널명","share":점유율,"cac":"낮음"|"중간"|"높음"}], "context": {"prevalence":"유병률/타깃인구 설명 한 줄","unmet":"미충족 니즈 한 줄","policy":"정책 동향 한 줄"} },
-  "competitors": [5개 {"brand":"경쟁사 브랜드명(가상)","format":"제형","key":"핵심 스펙","price":가격(원),"size":"용량 단위","claim":"클레임","rating":평점(3.8-4.6),"reviews":리뷰수(500-9000),"channel":"채널","evidenceStrength":근거강도(4.5-8.0)}],
-  "reviews": { "positive": [8개 {"t":"긍정 키워드(2-6자)","w":가중치(15-45)}], "negative": [8개 {"t":"부정 키워드(2-6자)","w":가중치(15-45)}] },
-  "concept": { "sourceNote": "가상 소비자 리서치 근거 한 줄", "sampleBadge": "AI 생성 예시", "topics": [3개 {"id":"A"|"B"|"C","name":"토픽명","docs":문서수(2-6),"totalDocs":12,"color":"us"|"avg"|"target","kws":[7-9개 {"t":"키워드","w":가중치(15-100)}]}], "painPoints": [3개 {"label":"짧은라벨","text":"페인포인트 설명"}], "pod": "POD 한 문장", "podBold": [POD 문장 안에서 강조할 부분 문자열 2개], "conclusion": "종합 결론 한 문장", "conclusionBold": [결론 문장 안에서 강조할 부분 문자열 2개] }
+  "product": {
+    "codename": "영문제품코드-1",
+    "tagline": "제품 한 줄 슬로건",
+    "target": "타깃 사용자 설명",
+    "format": "제형 및 용량",
+    "category": "카테고리명",
+    "subcategory": "세부 카테고리",
+    "regClass": "식약처 고시번호 형태",
+    "targetPrice": 45000,
+    "targetEvidenceStrength": 8.2,
+    "positioningSpec": "핵심 스펙 한 줄",
+    "positioningClaim": "기능성 클레임",
+    "positioningRating": 4.3,
+    "positioningChannel": "주 유통 채널"
+  },
+  "market": {
+    "headerTitle": "시장 제목",
+    "headerDesc": "시장 설명 한 줄",
+    "domestic": { "size": 3500, "unit": "억원", "cagr": 12, "year": 2024, "cagrNote": "성장 전망" },
+    "global": { "size": 15, "unit": "십억USD", "cagr": 8, "year": 2025 },
+    "segments": [
+      { "label": "세그먼트1", "share": 30, "growth": 18, "hot": true },
+      { "label": "세그먼트2", "share": 25, "growth": 12, "hot": false },
+      { "label": "세그먼트3", "share": 20, "growth": 10, "hot": false },
+      { "label": "세그먼트4", "share": 15, "growth": 8, "hot": false },
+      { "label": "세그먼트5", "share": 10, "growth": 6, "hot": false }
+    ],
+    "channels": [
+      { "name": "채널1", "share": 40, "cac": "낮음" },
+      { "name": "채널2", "share": 30, "cac": "중간" },
+      { "name": "채널3", "share": 20, "cac": "높음" },
+      { "name": "채널4", "share": 10, "cac": "중간" }
+    ],
+    "context": {
+      "prevalence": "유병률과 타깃 인구 규모를 구체적 수치로",
+      "unmet": "현재 제품의 미충족 니즈를 한 줄로",
+      "policy": "관련 정부 정책이나 규제 동향을 한 줄로"
+    }
+  }
 }
 
 JSON만 출력하세요.`;
-  return callJsonLlm(env, prompt, 1600);
+  return callJsonLlm(env, prompt, 800);
+}
+
+// ---------- Call A2: competitors + reviews + concept ----------
+async function generatePartA2(env: LlmEnv, brief: ConfirmedBrief) {
+  const prompt = `브리프: ${briefDescription(brief)}
+
+이 브리프에 맞는 경쟁사 5개, 긍정·부정 리뷰 키워드 각 8개, LDA 토픽 3개를 아래 JSON 스키마로 생성하세요.
+
+{
+  "competitors": [
+    { "brand": "가상브랜드A", "format": "제형", "key": "핵심스펙", "price": 42000, "size": "200ml×24", "claim": "클레임", "rating": 4.2, "reviews": 1200, "channel": "채널", "evidenceStrength": 6.5 },
+    { "brand": "가상브랜드B", "format": "제형", "key": "핵심스펙", "price": 38000, "size": "200ml×24", "claim": "클레임", "rating": 4.0, "reviews": 800, "channel": "채널", "evidenceStrength": 5.8 },
+    { "brand": "가상브랜드C", "format": "제형", "key": "핵심스펙", "price": 55000, "size": "200ml×24", "claim": "클레임", "rating": 4.4, "reviews": 2500, "channel": "채널", "evidenceStrength": 7.2 },
+    { "brand": "가상브랜드D", "format": "제형", "key": "핵심스펙", "price": 47000, "size": "200ml×24", "claim": "클레임", "rating": 3.9, "reviews": 600, "channel": "채널", "evidenceStrength": 5.5 },
+    { "brand": "가상브랜드E", "format": "제형", "key": "핵심스펙", "price": 52000, "size": "200ml×24", "claim": "클레임", "rating": 4.3, "reviews": 1800, "channel": "채널", "evidenceStrength": 6.8 }
+  ],
+  "reviews": {
+    "positive": [
+      { "t": "키워드1", "w": 40 }, { "t": "키워드2", "w": 35 }, { "t": "키워드3", "w": 30 }, { "t": "키워드4", "w": 28 },
+      { "t": "키워드5", "w": 25 }, { "t": "키워드6", "w": 22 }, { "t": "키워드7", "w": 20 }, { "t": "키워드8", "w": 18 }
+    ],
+    "negative": [
+      { "t": "키워드1", "w": 38 }, { "t": "키워드2", "w": 32 }, { "t": "키워드3", "w": 28 }, { "t": "키워드4", "w": 25 },
+      { "t": "키워드5", "w": 22 }, { "t": "키워드6", "w": 20 }, { "t": "키워드7", "w": 18 }, { "t": "키워드8", "w": 15 }
+    ]
+  },
+  "concept": {
+    "sourceNote": "가상 소비자 리서치 기반",
+    "sampleBadge": "AI 생성 예시",
+    "topics": [
+      { "id": "A", "name": "토픽명A", "docs": 4, "totalDocs": 12, "color": "us", "kws": [{ "t": "키워드", "w": 80 }, { "t": "키워드", "w": 65 }, { "t": "키워드", "w": 55 }, { "t": "키워드", "w": 45 }, { "t": "키워드", "w": 35 }] },
+      { "id": "B", "name": "토픽명B", "docs": 4, "totalDocs": 12, "color": "avg", "kws": [{ "t": "키워드", "w": 75 }, { "t": "키워드", "w": 60 }, { "t": "키워드", "w": 50 }, { "t": "키워드", "w": 40 }, { "t": "키워드", "w": 30 }] },
+      { "id": "C", "name": "토픽명C", "docs": 4, "totalDocs": 12, "color": "target", "kws": [{ "t": "키워드", "w": 70 }, { "t": "키워드", "w": 55 }, { "t": "키워드", "w": 45 }, { "t": "키워드", "w": 35 }, { "t": "키워드", "w": 25 }] }
+    ],
+    "painPoints": [
+      { "label": "라벨1", "text": "페인포인트 설명" },
+      { "label": "라벨2", "text": "페인포인트 설명" },
+      { "label": "라벨3", "text": "페인포인트 설명" }
+    ],
+    "pod": "POD 한 문장",
+    "podBold": ["강조어1", "강조어2"],
+    "conclusion": "결론 한 문장",
+    "conclusionBold": ["강조어1", "강조어2"]
+  }
+}
+
+JSON만 출력하세요.`;
+  return callJsonLlm(env, prompt, 1000);
 }
 
 // ---------- Call B: target (nutrition + evidence + ingredients) ----------
@@ -172,14 +257,17 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
       ? { NAVER_CLIENT_ID: env.NAVER_CLIENT_ID, NAVER_CLIENT_SECRET: env.NAVER_CLIENT_SECRET }
       : null;
 
-  const [a, b, c, naverInsights] = await Promise.all([
-    generatePartA(env, brief).catch(() => ({})),
+  const [a1, a2, b, c, naverInsights] = await Promise.all([
+    generatePartA1(env, brief).catch(() => ({})),
+    generatePartA2(env, brief).catch(() => ({})),
     generatePartB(env, brief).catch(() => ({})),
     generatePartC(env, brief).catch(() => ({})),
     naverEnv
       ? fetchConsumerInsights(naverEnv, env, brief.condition).catch(() => null)
       : Promise.resolve(null),
   ]);
+  // A1 + A2 병합
+  const a = { ...a1, ...a2 };
 
   const ingredients = Array.isArray(c.formula?.ingredients) && c.formula.ingredients.length ? c.formula.ingredients : FALLBACK_INGREDIENTS;
   const giIngredientId = ingredients.some((i: any) => i.id === c.formula?.giIngredientId)
@@ -202,7 +290,15 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
 
   return {
     product: { ...FALLBACK_PRODUCT, ...a.product },
-    market: { ...FALLBACK_MARKET, ...a.market },
+    market: {
+      ...FALLBACK_MARKET,
+      ...a.market,
+      // context는 명시적으로 병합 (nested 객체는 spread로 안 덮임)
+      context: {
+        ...FALLBACK_MARKET.context,
+        ...(a.market?.context ?? {}),
+      },
+    },
     competitors: Array.isArray(a.competitors) && a.competitors.length ? a.competitors : FALLBACK_COMPETITORS,
     // 네이버 실시간 데이터 우선 적용, 없으면 LLM 생성, 그것도 없으면 fallback
     reviews: naverInsights?.reviews ?? (a.reviews?.positive && a.reviews?.negative ? a.reviews : FALLBACK_REVIEWS),

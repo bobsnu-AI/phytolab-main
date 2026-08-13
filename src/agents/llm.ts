@@ -13,19 +13,19 @@ export interface LlmEnv {
 }
 
 const DEFAULT_MODEL = "meta/llama-3.1-8b-instruct";
-const TIMEOUT_MS = 12000;
+const DEFAULT_TIMEOUT_MS = 12000;
 
 export async function callAgentLlm(
   env: LlmEnv,
   messages: ChatMessage[],
-  opts: { model?: string; maxTokens?: number } = {}
+  opts: { model?: string; maxTokens?: number; timeoutMs?: number } = {}
 ): Promise<string> {
   if (!env.OPENAI_API_KEY || !env.OPENAI_BASE_URL) {
     throw new Error("LLM 환경변수 미설정 (OPENAI_API_KEY / OPENAI_BASE_URL)");
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
 
   try {
     const res = await fetch(`${env.OPENAI_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
