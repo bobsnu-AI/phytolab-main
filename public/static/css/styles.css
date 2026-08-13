@@ -1749,3 +1749,98 @@ body::before {
 .fd-price-kg { font-size: 15px; }
 .fd-price-g { font-size: 11px; color: var(--text-2); }
 .fd-price-kg small, .fd-price-g small { font-size: 9px; color: var(--text-3); font-weight: 400; }
+
+/* ─────────────────────────────────────────────────────────────
+   NAVER 실시간 트렌드 패널 (step1_market)
+   ───────────────────────────────────────────────────────────── */
+.naver-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  border-radius: 3px;
+  background: oklch(0.55 0.22 142 / 0.15);
+  color: oklch(0.55 0.22 142);
+  border: 1px solid oklch(0.55 0.22 142 / 0.35);
+  vertical-align: middle;
+}
+.naver-trend-panel {
+  background: linear-gradient(135deg, oklch(0.55 0.22 142 / 0.06), transparent 60%), var(--bg-1);
+  border-color: oklch(0.55 0.22 142 / 0.25);
+}
+.naver-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 4px;
+}
+@media (max-width: 1100px) {
+  .naver-trend-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .naver-trend-grid { grid-template-columns: 1fr; }
+}
+.nt-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.nt-card-primary {
+  background: linear-gradient(135deg, oklch(0.55 0.22 142 / 0.12), transparent 60%), var(--bg-2);
+  border-color: oklch(0.55 0.22 142 / 0.35);
+}
+.nt-icon {
+  font-size: 18px;
+  margin-bottom: 2px;
+}
+.nt-label {
+  font-size: 10px;
+  color: var(--text-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.nt-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin: 2px 0;
+}
+.nt-card-primary .nt-value {
+  color: oklch(0.55 0.22 142);
+}
+.nt-trend-up   { color: oklch(0.55 0.22 142) !important; }
+.nt-trend-down { color: var(--danger) !important; }
+.nt-trend-stable { color: var(--text-2) !important; }
+.nt-sub {
+  font-size: 10px;
+  color: var(--text-3);
+}
+.nt-category {
+  color: var(--text-3);
+  font-size: 10px;
+}
+.nt-bar-wrap {
+  margin-top: 8px;
+  height: 3px;
+  background: var(--bg-3);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.nt-bar {
+  height: 100%;
+  border-radius: 2px;
+  background: oklch(0.55 0.22 142);
+  transition: width 0.6s ease;
+}
+.nt-bar-shop {
+  background: oklch(0.6 0.2 260);
+}

@@ -297,13 +297,76 @@ const Step1Market = () => {
       </div>
       </Reveal>
 
+      {/* 네이버 실시간 트렌드 — trendSummary / shoppingSummary */}
+      {concept.sourceKey === "naver_realtime" && concept.trendSummary && (
+        <Reveal id="naver_trend" label="네이버 실시간 검색 트렌드" agent="mara">
+        <div className="panel naver-trend-panel">
+          <div className="panel-header">
+            <div>
+              <div className="panel-title">
+                네이버 실시간 검색 트렌드
+                <span className="naver-badge mono">NAVER LIVE</span>
+              </div>
+              <div className="panel-sub">Search Trend · Shopping Insight · Blog/News 분석 (최근 6개월)</div>
+            </div>
+            <div className="panel-note mono">{concept.sampleBadge}</div>
+          </div>
+          <div className="naver-trend-grid">
+            {/* 검색 트렌드 KPI */}
+            <div className="nt-card nt-card-primary">
+              <div className="nt-icon">🔍</div>
+              <div className="nt-label mono">TOP 검색 키워드</div>
+              <div className="nt-value">{concept.trendSummary.topKeyword}</div>
+              <div className="nt-sub mono">검색지수 {concept.trendSummary.topRatio}/100</div>
+              <div className="nt-bar-wrap">
+                <div className="nt-bar" style={{width: `${concept.trendSummary.topRatio}%`}}></div>
+              </div>
+            </div>
+            <div className="nt-card">
+              <div className="nt-icon">📈</div>
+              <div className="nt-label mono">검색 트렌드</div>
+              <div className={`nt-value nt-trend-${concept.trendSummary.trend}`}>
+                {concept.trendSummary.trend === "up" ? "▲ 상승세" : concept.trendSummary.trend === "down" ? "▼ 하락세" : "→ 안정세"}
+              </div>
+              <div className="nt-sub mono">월간 검색량 {(concept.trendSummary.totalSearchMonthly || 0).toLocaleString()}건</div>
+            </div>
+            <div className="nt-card">
+              <div className="nt-icon">👤</div>
+              <div className="nt-label mono">주 검색 연령대</div>
+              <div className="nt-value">{concept.trendSummary.ageGroup}</div>
+              <div className="nt-sub mono">Search Trend 분석</div>
+            </div>
+            <div className="nt-card">
+              <div className="nt-icon">🛒</div>
+              <div className="nt-label mono">쇼핑 인기 키워드</div>
+              <div className="nt-value">{concept.shoppingSummary?.topShoppingKeyword || "-"}</div>
+              <div className="nt-sub mono">
+                클릭 점유율 {concept.shoppingSummary?.topShoppingRatio || 0}%
+                <span className="nt-category"> · 건강기능식품</span>
+              </div>
+              {concept.shoppingSummary?.topShoppingRatio && (
+                <div className="nt-bar-wrap">
+                  <div className="nt-bar nt-bar-shop" style={{width: `${Math.min(concept.shoppingSummary.topShoppingRatio * 4, 100)}%`}}></div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        </Reveal>
+      )}
+
       <Reveal id="reviews" label="리뷰 시그널" agent="mara">
       <div className="two-col">
         <div className="panel">
           <div className="panel-header">
             <div>
-              <div className="panel-title">리뷰·평가 · 긍정 시그널</div>
-              <div className="panel-sub">처방+리뷰 클러스터링</div>
+              <div className="panel-title">
+                리뷰·평가 · 긍정 시그널
+                {concept.sourceKey === "naver_realtime" && <span className="naver-badge mono">NAVER</span>}
+              </div>
+              <div className="panel-sub">
+                {concept.sourceKey === "naver_realtime" ? "네이버 블로그·뉴스·카페 실제 키워드" : "처방+리뷰 클러스터링"}
+              </div>
             </div>
           </div>
           <div className="wordcloud pos">
@@ -313,8 +376,13 @@ const Step1Market = () => {
         <div className="panel">
           <div className="panel-header">
             <div>
-              <div className="panel-title">리뷰·평가 · 부정 시그널</div>
-              <div className="panel-sub">개선 기회 지점</div>
+              <div className="panel-title">
+                리뷰·평가 · 부정 시그널
+                {concept.sourceKey === "naver_realtime" && <span className="naver-badge mono">NAVER</span>}
+              </div>
+              <div className="panel-sub">
+                {concept.sourceKey === "naver_realtime" ? "네이버 실데이터 감성 분석" : "개선 기회 지점"}
+              </div>
             </div>
           </div>
           <div className="wordcloud neg">
