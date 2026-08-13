@@ -25,16 +25,16 @@ app.route("/", createDiscussionRoute("/api/agents/step1/stream", STEP1_INTRO, ST
   buildIntro: (d) => `지금은 5명의 Agent(CLIO/RENA/MARA/FINN/REGA)가 "${d.product.codename}" (${d.product.tagline}) 제품 개발을 위해 STAGE 1 시장조사 및 경쟁 SKU 벤치마킹을 실시간으로 논의 중입니다.`,
 }));
 app.route("/", createDiscussionRoute("/api/agents/step2/stream", STEP2_INTRO, STEP2_FACTS, STEP2_TURN_PLAN, {
-  datasetKeys: ["target", "nutritionCompare"],
-  buildIntro: (d) => `지금은 5명의 Agent(CLIO/RENA/MARA/FINN/REGA)가 "${d.product.codename}" (${d.product.tagline}) 제품 개발을 위해 STAGE 2 영양 기준 설정 및 맞춤 기능성 도출을 실시간으로 논의 중입니다.`,
+  datasetKeys: ["product", "target", "nutritionCompare"],
+  buildIntro: (d) => `지금은 5명의 Agent(CLIO/RENA/MARA/FINN/REGA)가 "${d.product?.codename ?? "이 제품"}" (${d.product?.tagline ?? "맞춤 기능성 제품"}) 제품 개발을 위해 STAGE 2 영양 기준 설정 및 맞춤 기능성 도출을 실시간으로 논의 중입니다.`,
 }));
 app.route("/", createDiscussionRoute("/api/agents/step3/stream", STEP3_INTRO, STEP3_FACTS, STEP3_TURN_PLAN, {
-  datasetKeys: ["formula"],
-  buildIntro: (d) => `지금은 5명의 Agent(CLIO/RENA/MARA/FINN/REGA)가 "${d.product.codename}" (${d.product.tagline}) 제품 개발을 위해 STAGE 3 배합 설계 및 표준제조기준 준수 검증을 실시간으로 논의 중입니다.`,
+  datasetKeys: ["product", "formula"],
+  buildIntro: (d) => `지금은 5명의 Agent(CLIO/RENA/MARA/FINN/REGA)가 "${d.product?.codename ?? "이 제품"}" (${d.product?.tagline ?? "맞춤 기능성 제품"}) 제품 개발을 위해 STAGE 3 배합 설계 및 표준제조기준 준수 검증을 실시간으로 논의 중입니다.`,
 }));
 app.route("/", createDiscussionRoute("/api/agents/step4/stream", STEP4_INTRO, STEP4_FACTS, STEP4_TURN_PLAN, {
-  datasetKeys: ["cost", "formula"],
-  buildIntro: (d) => `지금은 5명의 Agent(CLIO/RENA/MARA/FINN/REGA)가 "${d.product.codename}" (${d.product.tagline}) 제품 개발을 위해 STAGE 4 원가·판가·마진 시뮬레이션을 실시간으로 논의 중입니다.`,
+  datasetKeys: ["product", "cost", "formula"],
+  buildIntro: (d) => `지금은 5명의 Agent(CLIO/RENA/MARA/FINN/REGA)가 "${d.product?.codename ?? "이 제품"}" (${d.product?.tagline ?? "맞춤 기능성 제품"}) 제품 개발을 위해 STAGE 4 원가·판가·마진 시뮬레이션을 실시간으로 논의 중입니다.`,
 }));
 
 // STAGE 00 · 브리프 → STAGE 01~04용 제품 데이터셋 생성 (전체 동적화)

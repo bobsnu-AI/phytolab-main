@@ -17,9 +17,9 @@
   // 서버 SSE 라우트가 ?dataset= 쿼리로 픽업하는 최상위 키들 (src/agents/routes.ts의 datasetKeys와 동일해야 함)
   const STEP_DATASET_KEYS = {
     1: ["product", "market", "competitors", "reviews", "concept"],
-    2: ["target", "nutritionCompare"],
-    3: ["formula"],
-    4: ["cost", "formula"],
+    2: ["product", "target", "nutritionCompare"],
+    3: ["product", "formula"],
+    4: ["product", "cost", "formula"],
   };
 
   function buildStepEndpoint(step) {
