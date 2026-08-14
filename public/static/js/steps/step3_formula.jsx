@@ -65,8 +65,8 @@ const Step3Formula = () => {
       <div className="step-header">
         <div>
           <div className="step-eyebrow mono">STAGE 03 · FORMULATION</div>
-          <h1 className="step-title">배합 설계 · FSMP 영양기준 검증</h1>
-          <div className="step-desc">원료·용량·제형을 조정하면 표준제조기준 준수도를 실시간 검증합니다</div>
+          <h1 className="step-title">배합 설계 · {PHYTO_DATA.product?.regClass || "FSMP"} 영양기준 검증</h1>
+          <div className="step-desc">{PHYTO_DATA.product?.target ? `${PHYTO_DATA.product.target} 맞춤 ` : ""}원료·용량·제형을 조정하면 표준제조기준 준수도를 실시간 검증합니다</div>
         </div>
         <div className="step-badges">
           <div className="badge"><span className="badge-k">TOTAL</span><span className="badge-v mono">{(nonWater + waterAmount).toFixed(1)} g/팩</span></div>
@@ -199,8 +199,8 @@ const Step3Formula = () => {
             <div className="product-mock">
               <div className="pouch">
                 <div className="pouch-top">
-                  <div className="pouch-brand">GLUCARE·M</div>
-                  <div className="pouch-cat mono">FSMP · DIABETIC</div>
+                  <div className="pouch-brand">{PHYTO_DATA.product?.codename || "PHYTO-X"}</div>
+                  <div className="pouch-cat mono">{PHYTO_DATA.product?.category || "FSMP"} · {(PHYTO_DATA.product?.target || "CUSTOM").slice(0, 8)}</div>
                 </div>
                 <div className="pouch-mid">
                   <div className="pouch-flavor">{flavor}</div>

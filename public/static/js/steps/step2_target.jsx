@@ -1,8 +1,28 @@
-// Step 2: Patient Profiling — FSMP 환자 프로파일
+// Step 2: Patient Profiling — 브리프별 영양 기준 + 기능성 도출 (동적)
 const Step2Target = () => {
   const d = PHYTO_DATA.target;
   const n = d.nutritionTarget;
+  const product = PHYTO_DATA.product;
   const Reveal = window.RevealSection || (({ children }) => children);
+
+  // 브리프별 동적 라벨 생성
+  const isGenerated = !!PHYTO_DATA.generated;
+  const productTarget = product?.target || "타깃 수요층";
+  const category = product?.subcategory || product?.category || "기능성 식품";
+  const regClass = product?.regClass || "해당 카테고리";
+  // 패널 타이틀: 생성된 데이터면 브리프 기반, 아니면 기존 GLUCARE-M 텍스트
+  const nutritionPanelTitle = isGenerated
+    ? `${productTarget} 맞춤 영양 목표치 · ${regClass}`
+    : "FSMP 영양 목표치 · 당뇨환자용 표준제조기준";
+  const nutritionPanelSub = isGenerated
+    ? `${category} 브리프 기반 AI 생성 · ${product?.positioningClaim || "핵심 기능성 기준"}`
+    : "표준제조기준 + KDA 2024";
+  const guidelineBadge = isGenerated
+    ? (product?.regClass ? product.regClass : "해당 가이드라인")
+    : "KDA · ADA · ESPEN";
+  const evidenceStrength = product?.targetEvidenceStrength
+    ? `${product.targetEvidenceStrength.toFixed(1)} / 10`
+    : "A · 91.2%";
 
   return (
     <div className="step-content">
@@ -10,11 +30,11 @@ const Step2Target = () => {
         <div>
           <div className="step-eyebrow mono">STAGE 02 · NUTRITION & FUNCTIONALITY</div>
           <h1 className="step-title">영양 기준 설정 + 맞춤 기능성 도출</h1>
-          <div className="step-desc">FSMP 표준제조기준 · 임상 근거 논문 · 맞춤 기능성 원료 후보</div>
+          <div className="step-desc">{isGenerated ? `${productTarget} 맞춤 · 임상 근거 논문 · 기능성 원료 후보` : "FSMP 표준제조기준 · 임상 근거 논문 · 맞춤 기능성 원료 후보"}</div>
         </div>
         <div className="step-badges">
-          <div className="badge"><span className="badge-k">GUIDELINES</span><span className="badge-v mono">KDA · ADA · ESPEN</span></div>
-          <div className="badge"><span className="badge-k">CONFIDENCE</span><span className="badge-v mono">A · 91.2%</span></div>
+          <div className="badge"><span className="badge-k">GUIDELINES</span><span className="badge-v mono">{guidelineBadge}</span></div>
+          <div className="badge"><span className="badge-k">EVIDENCE</span><span className="badge-v mono">{evidenceStrength}</span></div>
         </div>
       </div>
 
@@ -23,8 +43,8 @@ const Step2Target = () => {
       <div className="panel">
         <div className="panel-header">
           <div>
-            <div className="panel-title">FSMP 영양 목표치 · 당뇨환자용 표준제조기준</div>
-            <div className="panel-sub">표준제조기준 + KDA 2024</div>
+            <div className="panel-title">{nutritionPanelTitle}</div>
+            <div className="panel-sub">{nutritionPanelSub}</div>
           </div>
           <div className="panel-note mono">1식 200ml·200kcal</div>
         </div>
