@@ -48,7 +48,7 @@ async function callJsonLlm(env: LlmEnv, userPrompt: string, maxTokens: number): 
     { role: "user" as const, content: userPrompt },
   ];
   try {
-    const raw = await callAgentLlm(env, messages, { maxTokens, timeoutMs: 25000 });
+    const raw = await callAgentLlm(env, messages, { maxTokens, timeoutMs: 15000 });
     return extractJson(raw);
   } catch (err) {
     // 1회 재시도
@@ -56,7 +56,7 @@ async function callJsonLlm(env: LlmEnv, userPrompt: string, maxTokens: number): 
       const raw = await callAgentLlm(
         env,
         [...messages, { role: "user" as const, content: "오직 JSON만 출력하세요." }],
-        { maxTokens, timeoutMs: 25000 }
+        { maxTokens, timeoutMs: 15000 }
       );
       return extractJson(raw);
     } catch {
@@ -69,147 +69,40 @@ async function callJsonLlm(env: LlmEnv, userPrompt: string, maxTokens: number): 
 async function generatePartA1(env: LlmEnv, brief: ConfirmedBrief) {
   const prompt = `브리프: ${briefDescription(brief)}
 
-아래 JSON 스키마를 채워 출력하세요. 숫자 자리에는 실제 숫자를, 문자 자리에는 실제 문자열을 넣으세요.
+아래 스키마를 실제 값으로 채워 JSON 하나만 출력하세요.
 
-{
-  "product": {
-    "codename": "영문제품코드-1",
-    "tagline": "제품 한 줄 슬로건",
-    "target": "타깃 사용자 설명",
-    "format": "제형 및 용량",
-    "category": "카테고리명",
-    "subcategory": "세부 카테고리",
-    "regClass": "식약처 고시번호 형태",
-    "targetPrice": 45000,
-    "targetEvidenceStrength": 8.2,
-    "positioningSpec": "핵심 스펙 한 줄",
-    "positioningClaim": "기능성 클레임",
-    "positioningRating": 4.3,
-    "positioningChannel": "주 유통 채널"
-  },
-  "market": {
-    "headerTitle": "시장 제목",
-    "headerDesc": "시장 설명 한 줄",
-    "domestic": { "size": 3500, "unit": "억원", "cagr": 12, "year": 2024, "cagrNote": "성장 전망" },
-    "global": { "size": 15, "unit": "십억USD", "cagr": 8, "year": 2025 },
-    "segments": [
-      { "label": "세그먼트1", "share": 30, "growth": 18, "hot": true },
-      { "label": "세그먼트2", "share": 25, "growth": 12, "hot": false },
-      { "label": "세그먼트3", "share": 20, "growth": 10, "hot": false },
-      { "label": "세그먼트4", "share": 15, "growth": 8, "hot": false },
-      { "label": "세그먼트5", "share": 10, "growth": 6, "hot": false }
-    ],
-    "channels": [
-      { "name": "채널1", "share": 40, "cac": "낮음" },
-      { "name": "채널2", "share": 30, "cac": "중간" },
-      { "name": "채널3", "share": 20, "cac": "높음" },
-      { "name": "채널4", "share": 10, "cac": "중간" }
-    ],
-    "context": {
-      "prevalence": "유병률과 타깃 인구 규모를 구체적 수치로",
-      "unmet": "현재 제품의 미충족 니즈를 한 줄로",
-      "policy": "관련 정부 정책이나 규제 동향을 한 줄로"
-    }
-  }
-}
-
-JSON만 출력하세요.`;
-  return callJsonLlm(env, prompt, 2000);
+{"product":{"codename":"영문코드-1","tagline":"슬로건","target":"타깃","format":"제형+용량","category":"카테고리","subcategory":"세부","regClass":"고시번호","targetPrice":45000,"targetEvidenceStrength":8.2,"positioningSpec":"핵심스펙","positioningClaim":"클레임","positioningRating":4.3,"positioningChannel":"채널"},"market":{"headerTitle":"시장제목","headerDesc":"설명","domestic":{"size":3500,"unit":"억원","cagr":12,"year":2024,"cagrNote":"전망"},"global":{"size":15,"unit":"십억USD","cagr":8,"year":2025},"segments":[{"label":"S1","share":30,"growth":18,"hot":true},{"label":"S2","share":25,"growth":12,"hot":false},{"label":"S3","share":20,"growth":10,"hot":false},{"label":"S4","share":15,"growth":8,"hot":false},{"label":"S5","share":10,"growth":6,"hot":false}],"channels":[{"name":"C1","share":40,"cac":"낮음"},{"name":"C2","share":30,"cac":"중간"},{"name":"C3","share":20,"cac":"높음"},{"name":"C4","share":10,"cac":"중간"}],"context":{"prevalence":"유병률 수치","unmet":"미충족 니즈","policy":"정책 동향"}}}`;
+  return callJsonLlm(env, prompt, 900);
 }
 
 // ---------- Call A2: competitors + reviews + concept ----------
 async function generatePartA2(env: LlmEnv, brief: ConfirmedBrief) {
   const prompt = `브리프: ${briefDescription(brief)}
 
-이 브리프에 맞는 경쟁사 5개, 긍정·부정 리뷰 키워드 각 8개, LDA 토픽 3개를 아래 JSON 스키마로 생성하세요.
+경쟁사 5개, 긍정·부정 리뷰 키워드 각 8개, LDA 토픽 3개를 아래 스키마로 채워 JSON 하나만 출력하세요.
 
-{
-  "competitors": [
-    { "brand": "가상브랜드A", "format": "제형", "key": "핵심스펙", "price": 42000, "size": "200ml×24", "claim": "클레임", "rating": 4.2, "reviews": 1200, "channel": "채널", "evidenceStrength": 6.5 },
-    { "brand": "가상브랜드B", "format": "제형", "key": "핵심스펙", "price": 38000, "size": "200ml×24", "claim": "클레임", "rating": 4.0, "reviews": 800, "channel": "채널", "evidenceStrength": 5.8 },
-    { "brand": "가상브랜드C", "format": "제형", "key": "핵심스펙", "price": 55000, "size": "200ml×24", "claim": "클레임", "rating": 4.4, "reviews": 2500, "channel": "채널", "evidenceStrength": 7.2 },
-    { "brand": "가상브랜드D", "format": "제형", "key": "핵심스펙", "price": 47000, "size": "200ml×24", "claim": "클레임", "rating": 3.9, "reviews": 600, "channel": "채널", "evidenceStrength": 5.5 },
-    { "brand": "가상브랜드E", "format": "제형", "key": "핵심스펙", "price": 52000, "size": "200ml×24", "claim": "클레임", "rating": 4.3, "reviews": 1800, "channel": "채널", "evidenceStrength": 6.8 }
-  ],
-  "reviews": {
-    "positive": [
-      { "t": "키워드1", "w": 40 }, { "t": "키워드2", "w": 35 }, { "t": "키워드3", "w": 30 }, { "t": "키워드4", "w": 28 },
-      { "t": "키워드5", "w": 25 }, { "t": "키워드6", "w": 22 }, { "t": "키워드7", "w": 20 }, { "t": "키워드8", "w": 18 }
-    ],
-    "negative": [
-      { "t": "키워드1", "w": 38 }, { "t": "키워드2", "w": 32 }, { "t": "키워드3", "w": 28 }, { "t": "키워드4", "w": 25 },
-      { "t": "키워드5", "w": 22 }, { "t": "키워드6", "w": 20 }, { "t": "키워드7", "w": 18 }, { "t": "키워드8", "w": 15 }
-    ]
-  },
-  "concept": {
-    "sourceNote": "가상 소비자 리서치 기반",
-    "sampleBadge": "AI 생성 예시",
-    "topics": [
-      { "id": "A", "name": "토픽명A", "docs": 4, "totalDocs": 12, "color": "us", "kws": [{ "t": "키워드", "w": 80 }, { "t": "키워드", "w": 65 }, { "t": "키워드", "w": 55 }, { "t": "키워드", "w": 45 }, { "t": "키워드", "w": 35 }] },
-      { "id": "B", "name": "토픽명B", "docs": 4, "totalDocs": 12, "color": "avg", "kws": [{ "t": "키워드", "w": 75 }, { "t": "키워드", "w": 60 }, { "t": "키워드", "w": 50 }, { "t": "키워드", "w": 40 }, { "t": "키워드", "w": 30 }] },
-      { "id": "C", "name": "토픽명C", "docs": 4, "totalDocs": 12, "color": "target", "kws": [{ "t": "키워드", "w": 70 }, { "t": "키워드", "w": 55 }, { "t": "키워드", "w": 45 }, { "t": "키워드", "w": 35 }, { "t": "키워드", "w": 25 }] }
-    ],
-    "painPoints": [
-      { "label": "라벨1", "text": "페인포인트 설명" },
-      { "label": "라벨2", "text": "페인포인트 설명" },
-      { "label": "라벨3", "text": "페인포인트 설명" }
-    ],
-    "pod": "POD 한 문장",
-    "podBold": ["강조어1", "강조어2"],
-    "conclusion": "결론 한 문장",
-    "conclusionBold": ["강조어1", "강조어2"]
-  }
-}
-
-JSON만 출력하세요.`;
-  return callJsonLlm(env, prompt, 2000);
+{"competitors":[{"brand":"브랜드A","format":"제형","key":"핵심스펙","price":42000,"size":"200ml×24","claim":"클레임","rating":4.2,"reviews":1200,"channel":"채널","evidenceStrength":6.5},{"brand":"B","format":"제형","key":"핵심스펙","price":38000,"size":"200ml×24","claim":"클레임","rating":4.0,"reviews":800,"channel":"채널","evidenceStrength":5.8},{"brand":"C","format":"제형","key":"핵심스펙","price":55000,"size":"200ml×24","claim":"클레임","rating":4.4,"reviews":2500,"channel":"채널","evidenceStrength":7.2},{"brand":"D","format":"제형","key":"핵심스펙","price":47000,"size":"200ml×24","claim":"클레임","rating":3.9,"reviews":600,"channel":"채널","evidenceStrength":5.5},{"brand":"E","format":"제형","key":"핵심스펙","price":52000,"size":"200ml×24","claim":"클레임","rating":4.3,"reviews":1800,"channel":"채널","evidenceStrength":6.8}],"reviews":{"positive":[{"t":"k1","w":40},{"t":"k2","w":35},{"t":"k3","w":30},{"t":"k4","w":28},{"t":"k5","w":25},{"t":"k6","w":22},{"t":"k7","w":20},{"t":"k8","w":18}],"negative":[{"t":"k1","w":38},{"t":"k2","w":32},{"t":"k3","w":28},{"t":"k4","w":25},{"t":"k5","w":22},{"t":"k6","w":20},{"t":"k7","w":18},{"t":"k8","w":15}]},"concept":{"sourceNote":"AI 생성","sampleBadge":"AI 생성 예시","topics":[{"id":"A","name":"토픽A","docs":4,"totalDocs":12,"color":"us","kws":[{"t":"k","w":80},{"t":"k","w":65},{"t":"k","w":55},{"t":"k","w":45},{"t":"k","w":35}]},{"id":"B","name":"토픽B","docs":4,"totalDocs":12,"color":"avg","kws":[{"t":"k","w":75},{"t":"k","w":60},{"t":"k","w":50},{"t":"k","w":40},{"t":"k","w":30}]},{"id":"C","name":"토픽C","docs":4,"totalDocs":12,"color":"target","kws":[{"t":"k","w":70},{"t":"k","w":55},{"t":"k","w":45},{"t":"k","w":35},{"t":"k","w":25}]}],"painPoints":[{"label":"라벨1","text":"설명"},{"label":"라벨2","text":"설명"},{"label":"라벨3","text":"설명"}],"pod":"POD문장","podBold":["강조1","강조2"],"conclusion":"결론문장","conclusionBold":["강조1","강조2"]}}`;
+  return callJsonLlm(env, prompt, 1100);
 }
 
 // ---------- Call B: target (nutrition + evidence + ingredients) ----------
 async function generatePartB(env: LlmEnv, brief: ConfirmedBrief) {
-  const prompt = `제품 브리프: ${briefDescription(brief)}
+  const prompt = `브리프: ${briefDescription(brief)}
 
-이 브리프에 맞는 영양 기준·근거·기능성 원료 데이터를 아래 JSON 스키마로 생성하세요. 실제 논문을 인용하지 말고 "AI 요약 근거"로 일반화해서 작성하세요(가짜 PMID 금지).
+영양 기준·근거·원료 데이터를 아래 스키마로 채워 JSON 하나만 출력하세요(가짜 PMID 금지, AI 요약 근거 사용).
 
-{
-  "target": {
-    "papersSearchNote": "근거 수집 방식 설명 한 줄 (예: AI 문헌 요약 기반, 실제 PMID 아님)",
-    "papers": [5개 {"title":"영문 연구 제목(가상, 그럴듯하게)","journal":"저널명(가상)","year":연도(2018-2024),"n":"표본 설명","effect":"연구 결과 요약 한 줄","key":"핵심 한 줄"}],
-    "ingredients": [6개 {"name":"원료명 (역할)","evidence":"A"|"B"|"C","dose":"1일 권장량","cost":비용레벨(1-5),"note":"근거 설명 한 줄"}],
-    "nutritionTarget": { "calories": {"value":열량숫자,"unit":"kcal/팩","note":"설명"}, "carbRatio": {"value":비율,"unit":"%en","note":"설명"}, "proteinRatio": {"value":비율,"unit":"%en","note":"설명"}, "fatRatio": {"value":비율,"unit":"%en","note":"설명"}, "giIndex": {"value":GI값,"unit":"GI","note":"설명"}, "sodium": {"value":나트륨mg,"unit":"mg","note":"설명"} }
-  },
-  "nutritionCompare": [6개 {"label":"비교 항목명 (단위)","our":자사값,"avg":경쟁평균값,"target":권장값,"max":축최대값,"inverse":true또는false(낮을수록 좋은 지표면 true)}]
-}
-
-JSON만 출력하세요.`;
-  return callJsonLlm(env, prompt, 2000);
+{"target":{"papersSearchNote":"AI 문헌 요약 기반","papers":[{"title":"영문제목","journal":"저널","year":2022,"n":"n=120","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2021,"n":"n=80","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2020,"n":"n=60","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2023,"n":"n=150","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2019,"n":"n=90","effect":"결과","key":"핵심"}],"ingredients":[{"name":"원료1(역할)","evidence":"A","dose":"1일량","cost":3,"note":"근거"},{"name":"원료2(역할)","evidence":"B","dose":"1일량","cost":2,"note":"근거"},{"name":"원료3(역할)","evidence":"A","dose":"1일량","cost":4,"note":"근거"},{"name":"원료4(역할)","evidence":"B","dose":"1일량","cost":3,"note":"근거"},{"name":"원료5(역할)","evidence":"C","dose":"1일량","cost":2,"note":"근거"},{"name":"원료6(역할)","evidence":"A","dose":"1일량","cost":5,"note":"근거"}],"nutritionTarget":{"calories":{"value":200,"unit":"kcal/팩","note":"설명"},"carbRatio":{"value":40,"unit":"%en","note":"설명"},"proteinRatio":{"value":30,"unit":"%en","note":"설명"},"fatRatio":{"value":30,"unit":"%en","note":"설명"},"giIndex":{"value":45,"unit":"GI","note":"설명"},"sodium":{"value":150,"unit":"mg","note":"설명"}}},"nutritionCompare":[{"label":"단백질(g)","our":12,"avg":8,"target":15,"max":20,"inverse":false},{"label":"칼로리(kcal)","our":200,"avg":250,"target":180,"max":300,"inverse":true},{"label":"GI지수","our":45,"avg":65,"target":40,"max":100,"inverse":true},{"label":"나트륨(mg)","our":150,"avg":200,"target":120,"max":300,"inverse":true},{"label":"류신(g)","our":2.4,"avg":1.2,"target":2.5,"max":4,"inverse":false},{"label":"비타민D(μg)","our":15,"avg":8,"target":20,"max":25,"inverse":false}]}`;
+  return callJsonLlm(env, prompt, 1100);
 }
 
 // ---------- Call C: formula ingredients + cost ----------
 async function generatePartC(env: LlmEnv, brief: ConfirmedBrief) {
-  const prompt = `제품 브리프: ${briefDescription(brief)}
+  const prompt = `브리프: ${briefDescription(brief)}
 
-이 브리프에 맞는 배합 원료 리스트와 원가 구조를 아래 JSON 스키마로 생성하세요.
+배합 원료(10-12개)와 원가 구조를 아래 스키마로 채워 JSON 하나만 출력하세요. id는 3-5자 영문소문자 고유코드, giIngredientId는 실제 id와 정확히 일치, role "담체" 1개 필수, amount 합 150-220g.
 
-{
-  "formula": {
-    "ingredients": [10-12개 {"id":"영문소문자코드(3-5자, 예: iso)","name":"원료명","amount":투입량(g, 0.05-30),"unit":"g","role":"탄수"|"단백"|"지방"|"미량"|"안정"|"관능"|"감미"|"담체","price":원료단가(원/g),"moq":최소발주량(kg),"yieldPct":수율(90-100)}] (반드시 role이 "담체"인 정제수/베이스 원료 1개 포함, 전체 amount 합이 대략 150-220 사이가 되도록),
-    "flavors": [3-4개 향미 옵션 문자열],
-    "formats": [3-4개 제형 옵션 문자열],
-    "roleTargets": {"carb": 탄수목표량(g), "protein": 단백목표량(g), "fat": 지방목표량(g), "micro": 미량영양소목표량(g)},
-    "giIngredientId": "role이 탄수인 원료 중 저GI 효과를 주도하는 원료의 id",
-    "efficacyLabels": {"carb":"탄수 관련 기능성 클레임(짧게)","protein":"단백 관련 기능성 클레임","fat":"지방 관련 기능성 클레임","micro":"미량영양소 관련 기능성 클레임"},
-    "efficacyTargets": {"carb":"목표 수치 설명 한 줄","protein":"목표 수치 설명 한 줄","fat":"목표 수치 설명 한 줄","micro":"목표 수치 설명 한 줄"}
-  },
-  "cost": {
-    "packaging": {"liquidPack":포장단가,"outerBox":외박스단가,"shipperBox":배송박스단가,"label":라벨단가,"sterilization":살균비} (모두 원/박스 또는 원/팩, 100-700 범위),
-    "overhead": {"labor":노무비,"utility":유틸리티,"qa":품질검사비,"depreciation":감가상각,"logistics":물류비} (모두 원/박스, 200-900 범위),
-    "target": {"wholesaleMarkup":도매마크업(1.4-2.0),"retailMarkup":소매마크업(2.0-2.8),"msrp":목표소비자가(원)}
-  }
-}
-
-id는 반드시 서로 다른 짧은 영문 코드여야 하고, giIngredientId는 ingredients 배열 안에 실제 존재하는 id와 정확히 일치해야 합니다. JSON만 출력하세요.`;
-  return callJsonLlm(env, prompt, 2000);
+{"formula":{"ingredients":[{"id":"wpi","name":"유청단백","amount":20,"unit":"g","role":"단백","price":12,"moq":25,"yieldPct":98},{"id":"iso","name":"이소말툴로스","amount":15,"unit":"g","role":"탄수","price":5,"moq":50,"yieldPct":99},{"id":"mct","name":"MCT오일","amount":5,"unit":"g","role":"지방","price":8,"moq":20,"yieldPct":99},{"id":"vdmx","name":"비타민D믹스","amount":0.05,"unit":"g","role":"미량","price":300,"moq":1,"yieldPct":95},{"id":"xgm","name":"잔탄검","amount":0.3,"unit":"g","role":"안정","price":15,"moq":5,"yieldPct":99},{"id":"flv","name":"바닐라향","amount":0.5,"unit":"g","role":"관능","price":80,"moq":2,"yieldPct":100},{"id":"suc","name":"수크랄로스","amount":0.02,"unit":"g","role":"감미","price":500,"moq":0.5,"yieldPct":100},{"id":"wtr","name":"정제수","amount":160,"unit":"g","role":"담체","price":0.01,"moq":1000,"yieldPct":100}],"flavors":["바닐라","무향","딸기"],"formats":["액상팩 200ml","파우치"],"roleTargets":{"carb":15,"protein":20,"fat":5,"micro":0.05},"giIngredientId":"iso","efficacyLabels":{"carb":"저GI 탄수화물","protein":"근육 단백질","fat":"에너지 지방","micro":"비타민 미네랄"},"efficacyTargets":{"carb":"혈당 지수 40 이하","protein":"류신 2.4g 이상","fat":"MCT 포함","micro":"비타민D 15μg"}},"cost":{"packaging":{"liquidPack":250,"outerBox":180,"shipperBox":120,"label":80,"sterilization":200},"overhead":{"labor":400,"utility":250,"qa":300,"depreciation":200,"logistics":350},"target":{"wholesaleMarkup":1.6,"retailMarkup":2.4,"msrp":45000}}}`;
+  return callJsonLlm(env, prompt, 1100);
 }
 
 // 관능 프로파일(6축)은 카테고리 불문 공통 구조를 사용 — role 기반이라 생성된 원료 구성에 자동으로 맞춰짐
