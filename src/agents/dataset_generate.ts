@@ -114,7 +114,7 @@ async function generatePartA1(env: LlmEnv, brief: ConfirmedBrief) {
 }
 
 JSON만 출력하세요.`;
-  return callJsonLlm(env, prompt, 800);
+  return callJsonLlm(env, prompt, 2000);
 }
 
 // ---------- Call A2: competitors + reviews + concept ----------
@@ -162,7 +162,7 @@ async function generatePartA2(env: LlmEnv, brief: ConfirmedBrief) {
 }
 
 JSON만 출력하세요.`;
-  return callJsonLlm(env, prompt, 1000);
+  return callJsonLlm(env, prompt, 2000);
 }
 
 // ---------- Call B: target (nutrition + evidence + ingredients) ----------
@@ -182,7 +182,7 @@ async function generatePartB(env: LlmEnv, brief: ConfirmedBrief) {
 }
 
 JSON만 출력하세요.`;
-  return callJsonLlm(env, prompt, 1200);
+  return callJsonLlm(env, prompt, 2000);
 }
 
 // ---------- Call C: formula ingredients + cost ----------
@@ -209,7 +209,7 @@ async function generatePartC(env: LlmEnv, brief: ConfirmedBrief) {
 }
 
 id는 반드시 서로 다른 짧은 영문 코드여야 하고, giIngredientId는 ingredients 배열 안에 실제 존재하는 id와 정확히 일치해야 합니다. JSON만 출력하세요.`;
-  return callJsonLlm(env, prompt, 1500);
+  return callJsonLlm(env, prompt, 2000);
 }
 
 // 관능 프로파일(6축)은 카테고리 불문 공통 구조를 사용 — role 기반이라 생성된 원료 구성에 자동으로 맞춰짐
@@ -257,17 +257,19 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
       ? { NAVER_CLIENT_ID: env.NAVER_CLIENT_ID, NAVER_CLIENT_SECRET: env.NAVER_CLIENT_SECRET }
       : null;
 
+  const a1Err: string[] = [];
   const [a1, a2, b, c, naverInsights] = await Promise.all([
-    generatePartA1(env, brief).catch(() => ({})),
-    generatePartA2(env, brief).catch(() => ({})),
-    generatePartB(env, brief).catch(() => ({})),
-    generatePartC(env, brief).catch(() => ({})),
+    generatePartA1(env, brief).catch((e) => { a1Err.push(`A1:${e?.message?.slice(0,100)}`); return {}; }),
+    generatePartA2(env, brief).catch((e) => { a1Err.push(`A2:${e?.message?.slice(0,100)}`); return {}; }),
+    generatePartB(env, brief).catch((e) => { a1Err.push(`B:${e?.message?.slice(0,100)}`); return {}; }),
+    generatePartC(env, brief).catch((e) => { a1Err.push(`C:${e?.message?.slice(0,100)}`); return {}; }),
     naverEnv
       ? fetchConsumerInsights(naverEnv, env, brief.condition).catch(() => null)
       : Promise.resolve(null),
   ]);
   // A1 + A2 병합
   const a = { ...a1, ...a2 };
+  if (a1Err.length) console.error("[dataset_generate] LLM errors:", a1Err.join(" | "));
 
   const ingredients = Array.isArray(c.formula?.ingredients) && c.formula.ingredients.length ? c.formula.ingredients : FALLBACK_INGREDIENTS;
   const giIngredientId = ingredients.some((i: any) => i.id === c.formula?.giIngredientId)

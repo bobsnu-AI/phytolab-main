@@ -1,6 +1,6 @@
-// NVIDIA NIM(OpenAI 호환) 최소 클라이언트 — Cloudflare Workers fetch 기반
+// Genspark LLM Proxy(OpenAI 호환) 최소 클라이언트 — Cloudflare Workers fetch 기반
 // SDK 의존성 없이 순수 fetch만 사용 (번들 크기 최소화)
-// OPENAI_BASE_URL=https://integrate.api.nvidia.com/v1, OPENAI_API_KEY=build.nvidia.com에서 발급받은 키
+// OPENAI_BASE_URL=https://www.genspark.ai/api/llm_proxy/v1
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -12,7 +12,7 @@ export interface LlmEnv {
   OPENAI_BASE_URL: string;
 }
 
-const DEFAULT_MODEL = "meta/llama-3.1-8b-instruct";
+const DEFAULT_MODEL = "gpt-5.1";
 const DEFAULT_TIMEOUT_MS = 12000;
 
 export async function callAgentLlm(
