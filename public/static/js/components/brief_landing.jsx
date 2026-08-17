@@ -578,24 +578,37 @@ function BriefLanding({ onLaunch }) {
             <div className="brief-gen-text">AI가 브리프에 맞는 제품 데이터를 생성하고 있습니다…</div>
             {(selectedCategoryLabel || selectedRegLabel) && (
               <div className="brief-gen-product-type">
-                {selectedCategoryLabel && (
-                  <div className="brief-gen-type-row">
-                    <span className="brief-gen-type-key mono">제품 유형</span>
-                    <span className="brief-gen-type-val">{selectedCategoryLabel}</span>
-                    {selectedCategorySubLabel && (
-                      <span className="brief-gen-type-sub mono">{selectedCategorySubLabel}</span>
-                    )}
-                  </div>
-                )}
-                {selectedRegLabel && (
-                  <div className="brief-gen-type-row">
-                    <span className="brief-gen-type-key mono">규제 클래스</span>
-                    <span className="brief-gen-type-val">{selectedRegLabel}</span>
-                    {selectedRegSubLabel && (
-                      <span className="brief-gen-type-sub mono">{selectedRegSubLabel}</span>
-                    )}
-                  </div>
-                )}
+                {/* 제품 정의: 카테고리 + 규제 클래스를 하나의 제품 정의 블록으로 표시 */}
+                <div className="brief-gen-type-header mono">생성 대상 제품</div>
+                <div className="brief-gen-type-definition">
+                  {selectedCategoryLabel && (
+                    <div className="brief-gen-type-row">
+                      <span className="brief-gen-type-key mono">카테고리</span>
+                      <div className="brief-gen-type-val-wrap">
+                        <span className="brief-gen-type-val">{selectedCategoryLabel}</span>
+                        {selectedCategorySubLabel && (
+                          <span className="brief-gen-type-sub mono">{selectedCategorySubLabel}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {selectedRegLabel && (
+                    <div className="brief-gen-type-row">
+                      <span className="brief-gen-type-key mono">규제 경로</span>
+                      <div className="brief-gen-type-val-wrap">
+                        <span className="brief-gen-type-val">{selectedRegLabel}</span>
+                        {selectedRegSubLabel && (
+                          <span className="brief-gen-type-sub mono">{selectedRegSubLabel}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {selectedCategoryLabel && selectedRegLabel && (
+                    <div className="brief-gen-type-note mono">
+                      ✦ {selectedCategoryLabel} 제품을 {selectedRegLabel} 경로로 개발합니다
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
