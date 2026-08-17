@@ -109,10 +109,36 @@ body::before {
 .app {
   position: relative; z-index: 1;
   display: grid;
-  grid-template-rows: 56px 1fr;
+  grid-template-rows: 56px auto 1fr;
   height: 100vh;
   overflow: hidden;
 }
+/* 워크플로 브리프 스트립 (TitleBar 바로 아래) */
+.workflow-brief-strip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 20px;
+  height: 34px; min-height: 34px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  overflow: hidden;
+}
+.brief-back-btn {
+  padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line);
+  background: transparent; color: var(--text-3); cursor: pointer; font-size: 11px;
+  transition: border-color 0.15s, color 0.15s; white-space: nowrap; flex-shrink: 0;
+}
+.brief-back-btn:hover { border-color: var(--accent); color: var(--accent); }
+.workflow-brief-eyebrow { color: var(--text-4); font-size: 10px; letter-spacing: 0.1em; flex-shrink: 0; }
+.workflow-brief-summary { color: var(--text-2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.workflow-brief-type-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 10px; border-radius: 20px; flex-shrink: 0;
+  background: oklch(0.55 0.22 142 / 0.1);
+  border: 1px solid oklch(0.55 0.22 142 / 0.3);
+}
+.workflow-brief-type-label { color: oklch(0.55 0.22 142); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.workflow-brief-reg-label { color: var(--text-3); font-size: 10px; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 .workspace {
   display: grid;
   grid-template-columns: 232px 1fr 340px;
@@ -193,6 +219,15 @@ body::before {
 .crumb { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 12px; white-space: nowrap; overflow: hidden; }
 .crumb-sep { color: var(--text-4); }
 .crumb-target { color: var(--accent); }
+/* 제품 유형 배지 (TitleBar crumb 안) */
+.crumb-type-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 20px;
+  background: oklch(0.55 0.22 142 / 0.12);
+  border: 1px solid oklch(0.55 0.22 142 / 0.3);
+}
+.crumb-type-cat { color: oklch(0.55 0.22 142); font-size: 11px; font-weight: 600; }
+.crumb-type-reg { color: var(--text-3); font-size: 10px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .titlebar-right { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
 .time { color: var(--text-3); font-size: 11px; }
@@ -311,6 +346,8 @@ body::before {
   color: var(--text-3);
 }
 .foot-row span:last-child { color: var(--text-1); }
+.stepnav-type-val { color: oklch(0.55 0.22 142) !important; }
+.stepnav-reg-val { color: var(--text-2) !important; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
 
 /* ===== Agent panel ===== */
 .agent-panel {
@@ -480,6 +517,11 @@ body::before {
 .cs-txt-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .badge-accent { background: oklch(from var(--accent) l c h / 0.1); border-color: oklch(from var(--accent) l c h / 0.3); }
 .badge-accent .badge-v { color: var(--accent); }
+/* 제품 유형 · 규제 클래스 전용 배지 (Step1 헤더) */
+.badge-product-type { background: oklch(0.55 0.22 142 / 0.1); border-color: oklch(0.55 0.22 142 / 0.35); }
+.badge-product-type .badge-v { color: oklch(0.55 0.22 142); font-weight: 600; font-size: 12px; }
+.badge-reg-class { background: oklch(0.6 0.15 260 / 0.08); border-color: oklch(0.6 0.15 260 / 0.25); }
+.badge-reg-class .badge-v { color: oklch(0.6 0.15 260); font-size: 11px; }
 
 /* ===== Panels (generic) ===== */
 .panel {

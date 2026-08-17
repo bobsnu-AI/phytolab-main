@@ -36,9 +36,17 @@ const Step1Market = () => {
           <div className="step-desc">{d.headerDesc}</div>
         </div>
         <div className="step-badges">
+          <div className="badge badge-product-type">
+            <span className="badge-k">제품 유형</span>
+            <span className="badge-v">{product.category || "특수의료용도식품"}</span>
+          </div>
+          <div className="badge badge-reg-class">
+            <span className="badge-k">규제 클래스</span>
+            <span className="badge-v mono" title={product.regClass || ""}>{product.regClass || "FSMP 표준제조기준"}</span>
+          </div>
           <div className="badge"><span className="badge-k">DATA</span><span className="badge-v-row"><span className="badge-v">식약처 · KDA · Global Data</span><window.SourceTag id="mfds_fsmp_standard" label="" /></span></div>
-          <div className="badge"><span className="badge-k">SCAN</span><span className="badge-v-row"><span className="badge-v mono">FSMP 218 SKU</span><window.SourceTag id="agent_estimate" label="" /></span></div>
-          <div className="badge"><span className="badge-k">SKUS</span><span className="badge-v mono">스캔 62 · 채택 5</span></div>
+          <div className="badge"><span className="badge-k">SCAN</span><span className="badge-v-row"><span className="badge-v mono">{product.category || "FSMP"} {PHYTO_DATA.competitors?.length || 218} SKU</span><window.SourceTag id="agent_estimate" label="" /></span></div>
+          <div className="badge"><span className="badge-k">SKUS</span><span className="badge-v mono">스캔 {PHYTO_DATA.competitors?.length || 62} · 채택 5</span></div>
           <div className="badge"><span className="badge-k">UPDATED</span><span className="badge-v mono">2026-06-28</span></div>
         </div>
       </div>

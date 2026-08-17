@@ -37,6 +37,14 @@
               </button>
               <span className="workflow-brief-eyebrow mono">CURRENT BRIEF</span>
               <span className="workflow-brief-summary">{briefSummary}</span>
+              {window.PHYTO_DATA?.product?.category && (
+                <span className="workflow-brief-type-badge">
+                  <span className="workflow-brief-type-label">{window.PHYTO_DATA.product.category}</span>
+                  {window.PHYTO_DATA.product.regClass && (
+                    <span className="workflow-brief-reg-label mono"> · {window.PHYTO_DATA.product.regClass}</span>
+                  )}
+                </span>
+              )}
             </div>
           )}
           <window.AgentRoster activeAgents={activeAgents} currentStep={step} />

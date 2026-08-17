@@ -47,6 +47,17 @@
             <span>{window.PHYTO_DATA.product.codename}</span>
             <span className="crumb-sep">/</span>
             <span className="crumb-target">{window.PHYTO_DATA.product.target}</span>
+            {window.PHYTO_DATA.product.category && (
+              <React.Fragment>
+                <span className="crumb-sep">/</span>
+                <span className="crumb-type-badge">
+                  <span className="crumb-type-cat">{window.PHYTO_DATA.product.category}</span>
+                  {window.PHYTO_DATA.product.regClass && (
+                    <span className="crumb-type-reg mono"> · {window.PHYTO_DATA.product.regClass}</span>
+                  )}
+                </span>
+              </React.Fragment>
+            )}
           </div>
         </div>
         <div className="titlebar-right">
@@ -87,9 +98,20 @@
         </ol>
         <div className="stepnav-footer">
           <div className="foot-row"><span>실행 시간</span><span className="mono">02:47:14</span></div>
-          <div className="foot-row"><span>검토 논문</span><span className="mono">312</span></div>
-          <div className="foot-row"><span>스캔 SKU</span><span className="mono">218</span></div>
-          <div className="foot-row"><span>가이드라인</span><span className="mono">KDA·ADA·ESPEN</span></div>
+          <div className="foot-row"><span>검토 논문</span><span className="mono">{(window.PHYTO_DATA?.target?.papers?.length || 0) > 0 ? `${window.PHYTO_DATA.target.papers.length}건` : "312"}</span></div>
+          <div className="foot-row"><span>스캔 SKU</span><span className="mono">{(window.PHYTO_DATA?.competitors?.length || 0) > 0 ? `${window.PHYTO_DATA.competitors.length} SKU` : "218 SKU"}</span></div>
+          <div className="foot-row">
+            <span>제품 유형</span>
+            <span className="mono stepnav-type-val">
+              {window.PHYTO_DATA?.product?.category || "특수의료용도식품"}
+            </span>
+          </div>
+          <div className="foot-row">
+            <span>규제 클래스</span>
+            <span className="mono stepnav-reg-val" title={window.PHYTO_DATA?.product?.regClass || ""}>
+              {(window.PHYTO_DATA?.product?.regClass || "FSMP").slice(0, 18)}
+            </span>
+          </div>
         </div>
       </nav>
     );

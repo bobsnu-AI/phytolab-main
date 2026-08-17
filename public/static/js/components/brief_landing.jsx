@@ -464,6 +464,14 @@ function BriefLanding({ onLaunch }) {
   const lifeLabel = leadAxes[0].options.find(o => o.id === sel.lifecycle)?.label || "";
   const condLabel = (sel.condition || []).map(id => leadAxes[1].options.find(o => o.id === id)?.label).filter(Boolean).join("·");
 
+  // 제품 유형 표시용 — 브리프 선택값 기반 (AI 생성 전)
+  const categoryAxis = window.BRIEF_AXES.find(ax => ax.id === "category");
+  const regAxis = window.BRIEF_AXES.find(ax => ax.id === "reg");
+  const selectedCategoryLabel = categoryAxis?.options.find(o => o.id === sel.category)?.label || "";
+  const selectedCategorySubLabel = categoryAxis?.options.find(o => o.id === sel.category)?.sub || "";
+  const selectedRegLabel = regAxis?.options.find(o => o.id === sel.reg)?.label || "";
+  const selectedRegSubLabel = regAxis?.options.find(o => o.id === sel.reg)?.sub || "";
+
   return (
     <div className="brief-app" data-screen-label="00 Brief Landing">
       {/* 상단 미니 타이틀바 */}
@@ -550,6 +558,28 @@ function BriefLanding({ onLaunch }) {
           <div className="brief-gen-box">
             <div className="thinking-dots"><span></span><span></span><span></span></div>
             <div className="brief-gen-text">AI가 브리프에 맞는 제품 데이터를 생성하고 있습니다…</div>
+            {(selectedCategoryLabel || selectedRegLabel) && (
+              <div className="brief-gen-product-type">
+                {selectedCategoryLabel && (
+                  <div className="brief-gen-type-row">
+                    <span className="brief-gen-type-key mono">제품 유형</span>
+                    <span className="brief-gen-type-val">{selectedCategoryLabel}</span>
+                    {selectedCategorySubLabel && (
+                      <span className="brief-gen-type-sub mono">{selectedCategorySubLabel}</span>
+                    )}
+                  </div>
+                )}
+                {selectedRegLabel && (
+                  <div className="brief-gen-type-row">
+                    <span className="brief-gen-type-key mono">규제 클래스</span>
+                    <span className="brief-gen-type-val">{selectedRegLabel}</span>
+                    {selectedRegSubLabel && (
+                      <span className="brief-gen-type-sub mono">{selectedRegSubLabel}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

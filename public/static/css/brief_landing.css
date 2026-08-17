@@ -885,3 +885,39 @@
   .brief-axis-lead, .brief-axis-summary { display: none; }
   .brief-axis-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ===== 생성 오버레이 · 제품 유형 표시 ===== */
+.brief-gen-product-type {
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.brief-gen-type-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+}
+.brief-gen-type-key {
+  font-size: 10px;
+  color: var(--text-4);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+.brief-gen-type-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: oklch(0.55 0.22 142);
+}
+.brief-gen-type-sub {
+  font-size: 10px;
+  color: var(--text-3);
+}
