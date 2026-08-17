@@ -96,19 +96,32 @@ interface LifecycleAdj {
   strategy?: string;
 }
 const LIFECYCLE_ADJUST: Record<string, LifecycleAdj> = {
-  infant: { category: "infant", format: "liquid", channel: ["phar", "hospital"] },
+  infant: { category: "infant",  format: "liquid", channel: ["phar", "hospital"] },
   child:  {},
   adult:  {},
   preg:   { format: "powder" },
   middle: {},
-  senior: { category: "senior", format: "jelly", channel: ["nursing", "hospital"] },
-  super:  { category: "senior", format: "jelly", channel: ["nursing"] },
+  senior: { category: "senior",  format: "jelly",  channel: ["nursing", "hospital"] },
+  super:  { category: "senior",  format: "jelly",  channel: ["nursing"] },
   all:    {},
 };
 
 function dedupCap<T>(arr: T[], cap: number): T[] {
   return Array.from(new Set(arr)).slice(0, cap);
 }
+
+// category → 표준 규제 경로 매핑
+// category가 바뀌었을 때 reg도 그에 맞게 정렬한다
+const CATEGORY_DEFAULT_REG: Record<string, string> = {
+  fsmp:     "fsmp",
+  hfunc:    "hfunc-i",
+  senior:   "seniorks",   // 고령친화식품 → KS 인증 (임의인증, 3개월)
+  personal: "hfunc-i",
+  general:  "label",
+  sports:   "label",
+  meal:     "regular",
+  infant:   "fsmp",
+};
 
 export function computeRuleRecommendation(lifecycle: string, condition: string[]): AxisRule {
   const primary = condition[0] || "metabolic";
@@ -121,11 +134,21 @@ export function computeRuleRecommendation(lifecycle: string, condition: string[]
     3
   );
 
+  // 최종 category 결정 (lifecycle 보정 우선)
+  const finalCategory = adj.category || base.category;
+
+  // reg: category가 lifecycle 보정으로 바뀐 경우 reg도 category에 맞게 정렬
+  // (예: cog → hfunc-i 이지만 lifecycle=senior로 category=senior가 되면 → seniorks)
+  const finalReg =
+    adj.category && adj.category !== base.category
+      ? (CATEGORY_DEFAULT_REG[finalCategory] ?? base.reg)
+      : base.reg;
+
   return {
-    category: adj.category || base.category,
+    category: finalCategory,
     ingredient: mergedIngredients.length ? mergedIngredients : base.ingredient,
     format: adj.format || base.format,
-    reg: base.reg,
+    reg: finalReg,
     channel: dedupCap([...(adj.channel || []), ...base.channel], 2),
     strategy: adj.strategy || base.strategy,
   };
