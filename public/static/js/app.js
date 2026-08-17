@@ -86,7 +86,19 @@
       if (launched === "1") {
         const savedDataset = localStorage.getItem("phytolab-generated-dataset");
         if (savedDataset) {
-          try { Object.assign(window.PHYTO_DATA, JSON.parse(savedDataset)); } catch (e) {}
+          try {
+            const parsed = JSON.parse(savedDataset);
+            // FALLBACK 데이터("기본 원료 / AI 생성 실패") 감지 시 복원 무시
+            const isValid = Array.isArray(parsed?.target?.ingredients)
+              && parsed.target.ingredients.length > 0
+              && parsed.target.ingredients[0]?.name !== "기본 원료";
+            if (isValid) {
+              Object.assign(window.PHYTO_DATA, parsed);
+            } else {
+              // 무효 캐시 제거
+              localStorage.removeItem("phytolab-generated-dataset");
+            }
+          } catch (e) {}
         }
       }
       return launched === "1" ? "workflow" : "brief";

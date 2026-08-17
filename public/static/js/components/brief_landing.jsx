@@ -429,17 +429,35 @@ function BriefLanding({ onLaunch }) {
       onLaunch(sel);
       return;
     }
+    // 새 생성 시작 전 이전 캐시 선제 삭제 — 구 FALLBACK 데이터가 새 세션에 노출되지 않도록
+    localStorage.removeItem("phytolab-generated-dataset");
     setGenState("loading");
     try {
       const res = await fetch("/api/brief/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lifecycle: sel.lifecycle, condition: sel.condition }),
+        // 브리프 전체 정보를 서버에 전달 (category/reg/format/channel/strategy 포함)
+        body: JSON.stringify({
+          lifecycle: sel.lifecycle,
+          condition: sel.condition,
+          category: sel.category,
+          reg: sel.reg,
+          format: sel.format,
+          ingredient: sel.ingredient,
+          channel: sel.channel,
+          strategy: sel.strategy,
+        }),
       });
       if (!res.ok) throw new Error(`status ${res.status}`);
       const dataset = await res.json();
+      // FALLBACK 데이터(AI 생성 실패)인 경우 localStorage에 저장하지 않음
+      const isValidDataset = Array.isArray(dataset?.target?.ingredients)
+        && dataset.target.ingredients.length > 0
+        && dataset.target.ingredients[0]?.name !== "기본 원료";
       Object.assign(window.PHYTO_DATA, dataset);
-      localStorage.setItem("phytolab-generated-dataset", JSON.stringify(dataset));
+      if (isValidDataset) {
+        localStorage.setItem("phytolab-generated-dataset", JSON.stringify(dataset));
+      }
       localStorage.setItem("phytolab-brief-confirmed", JSON.stringify(sel));
       localStorage.setItem("phytolab-launched", "1");
       setGenState("idle");
