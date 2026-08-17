@@ -85,14 +85,24 @@ async function generatePartA2(env: LlmEnv, brief: ConfirmedBrief) {
   return callJsonLlm(env, prompt, 1100);
 }
 
-// ---------- Call B: target (nutrition + evidence + ingredients) ----------
-async function generatePartB(env: LlmEnv, brief: ConfirmedBrief) {
+// ---------- Call B1: target.ingredients + nutritionTarget (핵심 원료·영양 목표) ----------
+async function generatePartB1(env: LlmEnv, brief: ConfirmedBrief) {
   const prompt = `브리프: ${briefDescription(brief)}
 
-영양 기준·근거·원료 데이터를 아래 스키마로 채워 JSON 하나만 출력하세요(가짜 PMID 금지, AI 요약 근거 사용).
+기능성 원료 6개와 영양 목표치를 아래 스키마로 채워 JSON 하나만 출력하세요.
 
-{"target":{"papersSearchNote":"AI 문헌 요약 기반","papers":[{"title":"영문제목","journal":"저널","year":2022,"n":"n=120","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2021,"n":"n=80","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2020,"n":"n=60","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2023,"n":"n=150","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2019,"n":"n=90","effect":"결과","key":"핵심"}],"ingredients":[{"name":"원료1(역할)","evidence":"A","dose":"1일량","cost":3,"note":"근거"},{"name":"원료2(역할)","evidence":"B","dose":"1일량","cost":2,"note":"근거"},{"name":"원료3(역할)","evidence":"A","dose":"1일량","cost":4,"note":"근거"},{"name":"원료4(역할)","evidence":"B","dose":"1일량","cost":3,"note":"근거"},{"name":"원료5(역할)","evidence":"C","dose":"1일량","cost":2,"note":"근거"},{"name":"원료6(역할)","evidence":"A","dose":"1일량","cost":5,"note":"근거"}],"nutritionTarget":{"calories":{"value":200,"unit":"kcal/팩","note":"설명"},"carbRatio":{"value":40,"unit":"%en","note":"설명"},"proteinRatio":{"value":30,"unit":"%en","note":"설명"},"fatRatio":{"value":30,"unit":"%en","note":"설명"},"giIndex":{"value":45,"unit":"GI","note":"설명"},"sodium":{"value":150,"unit":"mg","note":"설명"}}},"nutritionCompare":[{"label":"단백질(g)","our":12,"avg":8,"target":15,"max":20,"inverse":false},{"label":"칼로리(kcal)","our":200,"avg":250,"target":180,"max":300,"inverse":true},{"label":"GI지수","our":45,"avg":65,"target":40,"max":100,"inverse":true},{"label":"나트륨(mg)","our":150,"avg":200,"target":120,"max":300,"inverse":true},{"label":"류신(g)","our":2.4,"avg":1.2,"target":2.5,"max":4,"inverse":false},{"label":"비타민D(μg)","our":15,"avg":8,"target":20,"max":25,"inverse":false}]}`;
-  return callJsonLlm(env, prompt, 1600);
+{"ingredients":[{"name":"원료1(역할)","evidence":"A","dose":"1일량","cost":3,"note":"임상근거 1줄"},{"name":"원료2(역할)","evidence":"B","dose":"1일량","cost":2,"note":"임상근거 1줄"},{"name":"원료3(역할)","evidence":"A","dose":"1일량","cost":4,"note":"임상근거 1줄"},{"name":"원료4(역할)","evidence":"B","dose":"1일량","cost":3,"note":"임상근거 1줄"},{"name":"원료5(역할)","evidence":"C","dose":"1일량","cost":2,"note":"임상근거 1줄"},{"name":"원료6(역할)","evidence":"A","dose":"1일량","cost":5,"note":"임상근거 1줄"}],"nutritionTarget":{"calories":{"value":200,"unit":"kcal/팩","note":"설명"},"carbRatio":{"value":40,"unit":"%en","note":"설명"},"proteinRatio":{"value":30,"unit":"%en","note":"설명"},"fatRatio":{"value":30,"unit":"%en","note":"설명"},"giIndex":{"value":45,"unit":"GI","note":"설명"},"sodium":{"value":150,"unit":"mg","note":"설명"}}}`;
+  return callJsonLlm(env, prompt, 850);
+}
+
+// ---------- Call B2: papers(×5) + nutritionCompare(×6) ----------
+async function generatePartB2(env: LlmEnv, brief: ConfirmedBrief) {
+  const prompt = `브리프: ${briefDescription(brief)}
+
+관련 임상 논문 5개와 영양 비교 지표 6개를 아래 스키마로 채워 JSON 하나만 출력하세요(가짜 PMID 금지, AI 요약 근거 사용).
+
+{"papers":[{"title":"영문제목","journal":"저널","year":2022,"n":"n=120","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2021,"n":"n=80","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2020,"n":"n=60","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2023,"n":"n=150","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2019,"n":"n=90","effect":"결과","key":"핵심"}],"nutritionCompare":[{"label":"단백질(g)","our":12,"avg":8,"target":15,"max":20,"inverse":false},{"label":"칼로리(kcal)","our":200,"avg":250,"target":180,"max":300,"inverse":true},{"label":"GI지수","our":45,"avg":65,"target":40,"max":100,"inverse":true},{"label":"나트륨(mg)","our":150,"avg":200,"target":120,"max":300,"inverse":true},{"label":"류신(g)","our":2.4,"avg":1.2,"target":2.5,"max":4,"inverse":false},{"label":"비타민D(μg)","our":15,"avg":8,"target":20,"max":25,"inverse":false}]}`;
+  return callJsonLlm(env, prompt, 850);
 }
 
 // ---------- Call C: formula ingredients + cost ----------
@@ -151,10 +161,11 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
       : null;
 
   const a1Err: string[] = [];
-  const [a1, a2, b, c, naverInsights] = await Promise.all([
+  const [a1, a2, b1, b2, c, naverInsights] = await Promise.all([
     generatePartA1(env, brief).catch((e) => { a1Err.push(`A1:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartA2(env, brief).catch((e) => { a1Err.push(`A2:${e?.message?.slice(0,100)}`); return {}; }),
-    generatePartB(env, brief).catch((e) => { a1Err.push(`B:${e?.message?.slice(0,100)}`); return {}; }),
+    generatePartB1(env, brief).catch((e) => { a1Err.push(`B1:${e?.message?.slice(0,100)}`); return {}; }),
+    generatePartB2(env, brief).catch((e) => { a1Err.push(`B2:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartC(env, brief).catch((e) => { a1Err.push(`C:${e?.message?.slice(0,100)}`); return {}; }),
     naverEnv
       ? fetchConsumerInsights(naverEnv, env, brief.condition).catch(() => null)
@@ -162,6 +173,18 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
   ]);
   // A1 + A2 병합
   const a = { ...a1, ...a2 };
+  // B1(ingredients+nutritionTarget) + B2(papers+nutritionCompare) 병합
+  const b = {
+    target: (b1.ingredients || b1.nutritionTarget)
+      ? {
+          papersSearchNote: "AI 문헌 요약 기반",
+          papers: b2.papers || [],
+          ingredients: b1.ingredients || [],
+          nutritionTarget: b1.nutritionTarget || {},
+        }
+      : null,
+    nutritionCompare: b2.nutritionCompare || [],
+  };
   if (a1Err.length) console.error("[dataset_generate] LLM errors:", a1Err.join(" | "));
 
   const ingredients = Array.isArray(c.formula?.ingredients) && c.formula.ingredients.length ? c.formula.ingredients : FALLBACK_INGREDIENTS;
