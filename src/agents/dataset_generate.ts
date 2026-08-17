@@ -51,12 +51,12 @@ async function callJsonLlm(env: LlmEnv, userPrompt: string, maxTokens: number): 
     const raw = await callAgentLlm(env, messages, { maxTokens, timeoutMs: 15000 });
     return extractJson(raw);
   } catch (err) {
-    // 1회 재시도
+    // 1회 재시도 — 재시도는 8초로 단축해 CF Pages 30초 예산 초과 방지
     try {
       const raw = await callAgentLlm(
         env,
         [...messages, { role: "user" as const, content: "오직 JSON만 출력하세요." }],
-        { maxTokens, timeoutMs: 15000 }
+        { maxTokens, timeoutMs: 8000 }
       );
       return extractJson(raw);
     } catch {

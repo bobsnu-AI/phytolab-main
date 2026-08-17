@@ -1,12 +1,32 @@
 // Step 2: Patient Profiling — 브리프별 영양 기준 + 기능성 도출 (동적)
 const Step2Target = () => {
-  const d = PHYTO_DATA.target;
+  const { useState, useEffect } = React;
+
+  // useState로 스냅샷을 찍어 PHYTO_DATA 교체(새 브리프 생성 후 onLaunch) 시 re-render 보장.
+  // FormulaProvider key={codename}가 상위에서 re-mount를 트리거하지만,
+  // 직접 참조보다 안전한 방어 레이어로 유지한다.
+  const [snap, setSnap] = useState(() => ({
+    target: PHYTO_DATA.target,
+    product: PHYTO_DATA.product,
+    generated: !!PHYTO_DATA.generated,
+  }));
+
+  // PHYTO_DATA가 교체될 경우를 대비해 mount 시 한 번 더 동기화
+  useEffect(() => {
+    setSnap({
+      target: PHYTO_DATA.target,
+      product: PHYTO_DATA.product,
+      generated: !!PHYTO_DATA.generated,
+    });
+  }, []);
+
+  const d = snap.target;
   const n = d.nutritionTarget;
-  const product = PHYTO_DATA.product;
+  const product = snap.product;
   const Reveal = window.RevealSection || (({ children }) => children);
 
   // 브리프별 동적 라벨 생성
-  const isGenerated = !!PHYTO_DATA.generated;
+  const isGenerated = snap.generated;
   const productTarget = product?.target || "타깃 수요층";
   const category = product?.subcategory || product?.category || "기능성 식품";
   const regClass = product?.regClass || "해당 카테고리";
@@ -72,13 +92,13 @@ const Step2Target = () => {
           </div>
         </div>
         <div className="ingredient-list">
-          {d.ingredients.map((ing, i) => (
+          {(d.ingredients || []).map((ing, i) => (
             <div key={i} className="ingredient-row">
               <div className="ing-name">
                 {ing.name}
                 {ing.note && <div className="ing-note">{ing.note}</div>}
               </div>
-              <div className={`evidence evidence-${ing.evidence.replace("+","p")}`}>{ing.evidence}</div>
+              <div className={`evidence evidence-${(ing.evidence || "C").replace("+","p")}`}>{ing.evidence || "C"}</div>
               <div className="mono ing-dose">{ing.dose}/일</div>
               <div className="ing-cost">
                 {[1,2,3,4,5].map(n => (
@@ -101,7 +121,7 @@ const Step2Target = () => {
           </div>
         </div>
         <div className="papers-grid">
-          {d.papers.map((p, i) => {
+          {(d.papers || []).map((p, i) => {
             const Tag = p.pmid ? "a" : "div";
             const linkProps = p.pmid ? { href: `https://pubmed.ncbi.nlm.nih.gov/${p.pmid}/`, target: "_blank", rel: "noopener noreferrer" } : {};
             return (
