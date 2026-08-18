@@ -31,6 +31,13 @@
     return `${path}?dataset=${encodeURIComponent(JSON.stringify(picked))}`;
   }
 
+  // Step1의 모든 섹션 ID — done/error 시 미reveal 섹션 자동 공개에 사용
+  const ALL_STEP1_SECTION_IDS = [
+    "context", "kpi", "segments", "channels", "positioning",
+    "matrix", "nutrition_compare", "naver_trend",
+    "reviews", "concept_pod", "conclusion",
+  ];
+
   function AgentStreamProvider({ step, children }) {
     const endpoint = buildStepEndpoint(step);
     const isLive = !!endpoint;
@@ -72,6 +79,12 @@
       });
 
       es.addEventListener("done", () => {
+        // done 수신 시 아직 reveal 안 된 섹션 전부 공개 (타임아웃으로 일부 턴이 생략돼도 내용은 보여야 함)
+        setRevealed((prev) => {
+          const next = new Set(prev);
+          ALL_STEP1_SECTION_IDS.forEach((id) => next.add(id));
+          return next;
+        });
         setStatus("done");
         es.close();
       });
@@ -79,6 +92,11 @@
       es.onerror = () => {
         // "done" 이벤트 수신 후 서버 연결 종료 시에도 onerror가 불림 → done 유지
         // "streaming" 상태 (데이터를 이미 받는 중) 에서 끊기면 완료로 간주 (일부 환경에서 정상 종료 패턴)
+        setRevealed((prev) => {
+          const next = new Set(prev);
+          ALL_STEP1_SECTION_IDS.forEach((id) => next.add(id));
+          return next;
+        });
         setStatus((prev) => (prev === "done" || prev === "streaming" ? "done" : "error"));
         es.close();
       };

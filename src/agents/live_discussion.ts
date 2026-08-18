@@ -118,10 +118,10 @@ ${facts}`;
       const transcript: { agent: AgentId; msg: string }[] = [];
 
       // Cloudflare Workers SSE: 총 응답 시간이 길어지면 연결 끊김 방지용
-      // LLM 1턴 최대 대기 6초, 전체 스트림 최대 25초
+      // LLM 1턴 최대 대기 8초, 전체 스트림 최대 90초
       const STREAM_START = Date.now();
-      const STREAM_LIMIT_MS = 25_000;
-      const LLM_TURN_TIMEOUT_MS = 6_000;
+      const STREAM_LIMIT_MS = 90_000;
+      const LLM_TURN_TIMEOUT_MS = 8_000;
 
       for (const turn of turnPlan) {
         // 전체 스트림 시간 초과 시 즉시 done 전송 후 종료

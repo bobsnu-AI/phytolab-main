@@ -148,7 +148,7 @@ export const STEP1_TURN_PLAN: Step1Turn[] = [
     id: 12,
     agent: "mara",
     type: "insight",
-    revealsSection: "nutrition_compare",
+    revealsSection: ["nutrition_compare", "naver_trend"],
     guidance: "영양 조성 비교에서 이 제품이 경쟁 평균 대비 우위를 보이는 핵심 지표를 FACTS 기준으로 짧게 짚는다.",
     fallbackMsg: "핵심 영양 지표, 경쟁 평균 상회 설계 확인",
   },
