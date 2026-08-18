@@ -75,14 +75,24 @@ async function generatePartA1(env: LlmEnv, brief: ConfirmedBrief) {
   return callJsonLlm(env, prompt, 900);
 }
 
-// ---------- Call A2: competitors + reviews + concept ----------
+// ---------- Call A2: competitors + reviews (700t) ----------
 async function generatePartA2(env: LlmEnv, brief: ConfirmedBrief) {
   const prompt = `브리프: ${briefDescription(brief)}
 
-경쟁사 5개, 긍정·부정 리뷰 키워드 각 8개, LDA 토픽 3개를 아래 스키마로 채워 JSON 하나만 출력하세요.
+한국 시장 경쟁사 5개와 리뷰 키워드(긍정 8·부정 8)를 아래 스키마로 채워 JSON 하나만 출력하세요.
 
-{"competitors":[{"brand":"브랜드A","format":"제형","key":"핵심스펙","price":42000,"size":"200ml×24","claim":"클레임","rating":4.2,"reviews":1200,"channel":"채널","evidenceStrength":6.5},{"brand":"B","format":"제형","key":"핵심스펙","price":38000,"size":"200ml×24","claim":"클레임","rating":4.0,"reviews":800,"channel":"채널","evidenceStrength":5.8},{"brand":"C","format":"제형","key":"핵심스펙","price":55000,"size":"200ml×24","claim":"클레임","rating":4.4,"reviews":2500,"channel":"채널","evidenceStrength":7.2},{"brand":"D","format":"제형","key":"핵심스펙","price":47000,"size":"200ml×24","claim":"클레임","rating":3.9,"reviews":600,"channel":"채널","evidenceStrength":5.5},{"brand":"E","format":"제형","key":"핵심스펙","price":52000,"size":"200ml×24","claim":"클레임","rating":4.3,"reviews":1800,"channel":"채널","evidenceStrength":6.8}],"reviews":{"positive":[{"t":"k1","w":40},{"t":"k2","w":35},{"t":"k3","w":30},{"t":"k4","w":28},{"t":"k5","w":25},{"t":"k6","w":22},{"t":"k7","w":20},{"t":"k8","w":18}],"negative":[{"t":"k1","w":38},{"t":"k2","w":32},{"t":"k3","w":28},{"t":"k4","w":25},{"t":"k5","w":22},{"t":"k6","w":20},{"t":"k7","w":18},{"t":"k8","w":15}]},"concept":{"sourceNote":"AI 생성","sampleBadge":"AI 생성 예시","topics":[{"id":"A","name":"토픽A","docs":4,"totalDocs":12,"color":"us","kws":[{"t":"k","w":80},{"t":"k","w":65},{"t":"k","w":55},{"t":"k","w":45},{"t":"k","w":35}]},{"id":"B","name":"토픽B","docs":4,"totalDocs":12,"color":"avg","kws":[{"t":"k","w":75},{"t":"k","w":60},{"t":"k","w":50},{"t":"k","w":40},{"t":"k","w":30}]},{"id":"C","name":"토픽C","docs":4,"totalDocs":12,"color":"target","kws":[{"t":"k","w":70},{"t":"k","w":55},{"t":"k","w":45},{"t":"k","w":35},{"t":"k","w":25}]}],"painPoints":[{"label":"라벨1","text":"설명"},{"label":"라벨2","text":"설명"},{"label":"라벨3","text":"설명"}],"pod":"POD문장","podBold":["강조1","강조2"],"conclusion":"결론문장","conclusionBold":["강조1","강조2"]}}`;
-  return callJsonLlm(env, prompt, 1100);
+{"competitors":[{"brand":"브랜드A","format":"제형","key":"핵심스펙","price":42000,"size":"200ml×24","claim":"클레임","rating":4.2,"reviews":1200,"channel":"채널","evidenceStrength":6.5},{"brand":"B","format":"제형","key":"핵심스펙","price":38000,"size":"200ml×24","claim":"클레임","rating":4.0,"reviews":800,"channel":"채널","evidenceStrength":5.8},{"brand":"C","format":"제형","key":"핵심스펙","price":55000,"size":"200ml×24","claim":"클레임","rating":4.4,"reviews":2500,"channel":"채널","evidenceStrength":7.2},{"brand":"D","format":"제형","key":"핵심스펙","price":47000,"size":"200ml×24","claim":"클레임","rating":3.9,"reviews":600,"channel":"채널","evidenceStrength":5.5},{"brand":"E","format":"제형","key":"핵심스펙","price":52000,"size":"200ml×24","claim":"클레임","rating":4.3,"reviews":1800,"channel":"채널","evidenceStrength":6.8}],"reviews":{"positive":[{"t":"k1","w":40},{"t":"k2","w":35},{"t":"k3","w":30},{"t":"k4","w":28},{"t":"k5","w":25},{"t":"k6","w":22},{"t":"k7","w":20},{"t":"k8","w":18}],"negative":[{"t":"k1","w":38},{"t":"k2","w":32},{"t":"k3","w":28},{"t":"k4","w":25},{"t":"k5","w":22},{"t":"k6","w":20},{"t":"k7","w":18},{"t":"k8","w":15}]}}`;
+  return callJsonLlm(env, prompt, 700);
+}
+
+// ---------- Call A3: concept (LDA topics + painPoints + pod + conclusion) (600t) ----------
+async function generatePartA3(env: LlmEnv, brief: ConfirmedBrief) {
+  const prompt = `브리프: ${briefDescription(brief)}
+
+소비자 인식 분석(LDA 토픽 3개·페인포인트 3개·POD·결론)을 아래 스키마로 채워 JSON 하나만 출력하세요.
+
+{"concept":{"sourceNote":"AI 생성","sampleBadge":"AI 생성 예시","topics":[{"id":"A","name":"토픽A","docs":4,"totalDocs":12,"color":"us","kws":[{"t":"k","w":80},{"t":"k","w":65},{"t":"k","w":55},{"t":"k","w":45},{"t":"k","w":35}]},{"id":"B","name":"토픽B","docs":4,"totalDocs":12,"color":"avg","kws":[{"t":"k","w":75},{"t":"k","w":60},{"t":"k","w":50},{"t":"k","w":40},{"t":"k","w":30}]},{"id":"C","name":"토픽C","docs":4,"totalDocs":12,"color":"target","kws":[{"t":"k","w":70},{"t":"k","w":55},{"t":"k","w":45},{"t":"k","w":35},{"t":"k","w":25}]}],"painPoints":[{"label":"라벨1","text":"설명"},{"label":"라벨2","text":"설명"},{"label":"라벨3","text":"설명"}],"pod":"POD문장","podBold":["강조1","강조2"],"conclusion":"결론문장","conclusionBold":["강조1","강조2"]}}`;
+  return callJsonLlm(env, prompt, 600);
 }
 
 // ---------- Call B1: target.ingredients + nutritionTarget (핵심 원료·영양 목표) ----------
@@ -161,9 +171,10 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
       : null;
 
   const a1Err: string[] = [];
-  const [a1, a2, b1, b2, c, naverInsights] = await Promise.all([
+  const [a1, a2, a3, b1, b2, c, naverInsights] = await Promise.all([
     generatePartA1(env, brief).catch((e) => { a1Err.push(`A1:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartA2(env, brief).catch((e) => { a1Err.push(`A2:${e?.message?.slice(0,100)}`); return {}; }),
+    generatePartA3(env, brief).catch((e) => { a1Err.push(`A3:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartB1(env, brief).catch((e) => { a1Err.push(`B1:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartB2(env, brief).catch((e) => { a1Err.push(`B2:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartC(env, brief).catch((e) => { a1Err.push(`C:${e?.message?.slice(0,100)}`); return {}; }),
@@ -171,8 +182,8 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
       ? fetchConsumerInsights(naverEnv, env, brief.condition).catch(() => null)
       : Promise.resolve(null),
   ]);
-  // A1 + A2 병합
-  const a = { ...a1, ...a2 };
+  // A1 + A2(competitors+reviews) + A3(concept) 병합
+  const a = { ...a1, ...a2, concept: (a3 as any).concept || undefined };
   // B1(ingredients+nutritionTarget) + B2(papers+nutritionCompare) 병합
   const b = {
     target: (b1.ingredients || b1.nutritionTarget)
@@ -236,7 +247,7 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
           conclusionBold: naverInsights.conclusionBold,
         }
       : a.concept?.topics
-        ? { sourceKey: "ai_generated", sourceLabel: "AI 생성 · 미검증", ...a.concept }
+        ? { sourceKey: "ai_generated", sourceLabel: "AI 생성 · 미검증", sourceNote: "AI 생성", sampleBadge: "AI 생성 예시", ...a.concept }
         : FALLBACK_CONCEPT,
     target: b.target ? { ...b.target, papers: (b.target.papers || []).map((p: any) => ({ ...p, sourceKey: "ai_generated" })), ingredients: (b.target.ingredients || []).map((i: any) => ({ ...i, sourceKey: "ai_generated" })) } : FALLBACK_TARGET,
     nutritionCompare: Array.isArray(b.nutritionCompare) && b.nutritionCompare.length ? b.nutritionCompare : FALLBACK_NUTRITION_COMPARE,
