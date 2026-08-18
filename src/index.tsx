@@ -35,24 +35,24 @@ app.get('/', (c) => {
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
 
-<script src="/static/js/data/mockData.js"></script>
-<script src="/static/js/data/sources.js"></script>
-<script src="/static/js/data/agents.js"></script>
-<script src="/static/js/data/agent_prompts.js"></script>
-<script src="/static/js/data/brief.js"></script>
-<script src="/static/js/data/nutrient_db.js"></script>
+<script src="/static/js/data/mockData.js?v=20260818"></script>
+<script src="/static/js/data/sources.js?v=20260818"></script>
+<script src="/static/js/data/agents.js?v=20260818"></script>
+<script src="/static/js/data/agent_prompts.js?v=20260818"></script>
+<script src="/static/js/data/brief.js?v=20260818"></script>
+<script src="/static/js/data/nutrient_db.js?v=20260818"></script>
 
-<script src="/static/js/react_globals.js"></script>
+<script src="/static/js/react_globals.js?v=20260818"></script>
 
-<script type="text/babel" src="/static/js/formula_context.js"></script>
-<script type="text/babel" src="/static/js/live_agent_context.js"></script>
-<script type="text/babel" src="/static/js/shell_components.js"></script>
-<script type="text/babel" src="/static/js/steps/step1_market.jsx"></script>
-<script type="text/babel" src="/static/js/steps/step2_target.jsx"></script>
-<script type="text/babel" src="/static/js/steps/step3_formula.jsx"></script>
-<script type="text/babel" src="/static/js/steps/step4_cost.jsx"></script>
-<script type="text/babel" src="/static/js/components/brief_landing.jsx"></script>
-<script type="text/babel" src="/static/js/app.js"></script>
+<script type="text/babel" src="/static/js/formula_context.js?v=20260818"></script>
+<script type="text/babel" src="/static/js/live_agent_context.js?v=20260818"></script>
+<script type="text/babel" src="/static/js/shell_components.js?v=20260818"></script>
+<script type="text/babel" src="/static/js/steps/step1_market.jsx?v=20260818"></script>
+<script type="text/babel" src="/static/js/steps/step2_target.jsx?v=20260818"></script>
+<script type="text/babel" src="/static/js/steps/step3_formula.jsx?v=20260818"></script>
+<script type="text/babel" src="/static/js/steps/step4_cost.jsx?v=20260818"></script>
+<script type="text/babel" src="/static/js/components/brief_landing.jsx?v=20260818"></script>
+<script type="text/babel" src="/static/js/app.js?v=20260818"></script>
 
 <style>
 .workflow-brief-strip {

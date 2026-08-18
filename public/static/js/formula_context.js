@@ -14,7 +14,9 @@
     "감미": "감미", "sweet": "감미", "sweetener": "감미",
     "관능": "관능", "flavor": "관능", "향미": "관능",
     "담체": "담체", "carrier": "담체", "water": "담체", "정제수": "담체",
-    // "기능" role은 열량 기여 없음 — 별도 분류 유지
+    // "기능" role: 콜라겐/글루코사민 등 기능성 원료 → 단백질 계열로 열량 계산
+    "기능": "단백", "functional": "단백", "func": "단백",
+    "efficacy": "단백", "active": "단백",
   };
 
   function normalizeIngs(ings) {
