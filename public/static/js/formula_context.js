@@ -1,6 +1,6 @@
 // 전역 배합 상태 Context (Step 4/5 공유) — LLM 채팅 없이 슬라이더 상호작용만 지원
 (function () {
-  const { createContext, useContext, useState } = React;
+  const { createContext, useContext, useState, useEffect, useRef } = React;
 
   const FormulaContext = createContext(null);
 
@@ -14,42 +14,79 @@
     "감미": "감미", "sweet": "감미", "sweetener": "감미",
     "관능": "관능", "flavor": "관능", "향미": "관능",
     "담체": "담체", "carrier": "담체", "water": "담체", "정제수": "담체",
+    // "기능" role은 열량 기여 없음 — 별도 분류 유지
   };
 
   function normalizeIngs(ings) {
-    return ings.map(x => ({
+    return (ings || []).map(x => ({
       ...x,
       role: ROLE_NORMALIZE[x.role] || ROLE_NORMALIZE[(x.role || "").toLowerCase()] || x.role,
     }));
   }
 
+  // PHYTO_DATA.formula에서 현재 상태를 읽어오는 헬퍼
+  function readFormulaSnapshot() {
+    const f = window.PHYTO_DATA.formula;
+    return {
+      ings: normalizeIngs(f.ingredients || []),
+      flavor: (f.flavors && f.flavors[0]) || "바닐라",
+      format: (f.formats && f.formats[0]) || "액상팩 200ml",
+      servings: f.servingsPerBox || 24,
+      msrp: window.PHYTO_DATA.cost?.target?.msrp || 45000,
+      giIngredientId: f.giIngredientId || null,
+      giBaseline: f.giBaseline ?? 75,
+      giWeight: f.giWeight ?? 45,
+    };
+  }
+
   function FormulaProvider({ children }) {
-    const formulaData = window.PHYTO_DATA.formula;
-    // initial은 formula 객체 전체 (giIngredientId, giBaseline, giWeight 포함)
-    const initialFormula = formulaData;
-    const initialIngs = normalizeIngs(formulaData.ingredients || []);
+    const snap = readFormulaSnapshot();
 
-    const [ings, setIngs] = useState(initialIngs);
-    const [flavor, setFlavor] = useState(
-      (formulaData.flavors && formulaData.flavors[0]) || "바닐라"
-    );
-    const [format, setFormat] = useState(
-      (formulaData.formats && formulaData.formats[0]) || "액상팩 200ml"
-    );
-    const [servings, setServings] = useState(formulaData.servingsPerBox || 24);
+    const [ings, setIngs] = useState(snap.ings);
+    const [flavor, setFlavor] = useState(snap.flavor);
+    const [format, setFormat] = useState(snap.format);
+    const [servings, setServings] = useState(snap.servings);
+    const [msrp, setMsrp] = useState(snap.msrp);
 
-    const [msrp, setMsrp] = useState(
-      window.PHYTO_DATA.cost?.target?.msrp || 45000
-    );
+    // gi 메타 — PHYTO_DATA.formula가 바뀌면 함께 갱신해야 하므로 state로 관리
+    const [giMeta, setGiMeta] = useState({
+      giIngredientId: snap.giIngredientId,
+      giBaseline: snap.giBaseline,
+      giWeight: snap.giWeight,
+    });
+
     const [yieldOverall, setYieldOverall] = useState(93);
     const [batchSize, setBatchSize] = useState(30000);
     const [channel, setChannel] = useState("병원");
-
     const [highlight, setHighlight] = useState(null);
-
-    // 원료 단가 소스: "example"(시연용 예시 단가) vs "custom"(기업이 직접 입력한 실제 공급단가)
     const [priceMode, setPriceMode] = useState("example");
-    const [customPrices, setCustomPrices] = useState({}); // { [ingredientId]: 원/g }
+    const [customPrices, setCustomPrices] = useState({});
+
+    // PHYTO_DATA.formula가 외부에서 바뀌는 경우(새로고침 복원, 재생성) 동기화
+    // codename을 기준으로 변경 감지
+    const lastCodename = useRef(window.PHYTO_DATA?.product?.codename || "");
+    useEffect(() => {
+      const timer = setInterval(() => {
+        const currentCodename = window.PHYTO_DATA?.product?.codename || "";
+        if (currentCodename !== lastCodename.current) {
+          lastCodename.current = currentCodename;
+          const newSnap = readFormulaSnapshot();
+          setIngs(newSnap.ings);
+          setFlavor(newSnap.flavor);
+          setFormat(newSnap.format);
+          setServings(newSnap.servings);
+          setMsrp(newSnap.msrp);
+          setGiMeta({
+            giIngredientId: newSnap.giIngredientId,
+            giBaseline: newSnap.giBaseline,
+            giWeight: newSnap.giWeight,
+          });
+          setCustomPrices({});
+        }
+      }, 300);
+      return () => clearInterval(timer);
+    }, []);
+
     const updateCustomPrice = (id, val) => {
       setCustomPrices(prev => {
         if (val === null || val === undefined || isNaN(val)) {
@@ -60,27 +97,23 @@
         return { ...prev, [id]: Math.max(0, val) };
       });
     };
-    // 실제 원가계산에 사용할 단가 resolver: custom 모드이고 값이 입력되어 있으면 그 값을, 아니면 예시 단가 사용
     const priceFor = (ing) => (priceMode === "custom" && customPrices[ing.id] != null) ? customPrices[ing.id] : ing.price;
 
     const totalTarget = 200;
     const nonWater = ings.filter(x => x.id !== "wat").reduce((s, x) => s + x.amount, 0);
     const waterAmount = Math.max(0, totalTarget - nonWater);
 
-    const carb = ings.filter(x => x.role === "탄수").reduce((s, x) => s + x.amount, 0);
+    const carb    = ings.filter(x => x.role === "탄수").reduce((s, x) => s + x.amount, 0);
     const protein = ings.filter(x => x.role === "단백").reduce((s, x) => s + x.amount, 0);
-    const fat = ings.filter(x => x.role === "지방").reduce((s, x) => s + x.amount, 0);
+    const fat     = ings.filter(x => x.role === "지방").reduce((s, x) => s + x.amount, 0);
     const kcal = carb * 4 + protein * 4 + fat * 9;
-    const carbPct = kcal > 0 ? (carb * 4 / kcal) * 100 : 0;
+    const carbPct    = kcal > 0 ? (carb    * 4 / kcal) * 100 : 0;
     const proteinPct = kcal > 0 ? (protein * 4 / kcal) * 100 : 0;
-    const fatPct = kcal > 0 ? (fat * 9 / kcal) * 100 : 0;
+    const fatPct     = kcal > 0 ? (fat     * 9 / kcal) * 100 : 0;
 
-    // giIngredientId: formula 객체에서 읽음 (ingredients 배열이 아님)
-    const giIngId = initialFormula.giIngredientId;
-    const giBaseline = initialFormula.giBaseline ?? 75;
-    const giWeight = initialFormula.giWeight ?? 45;
-    const giIngAmount = giIngId ? (ings.find(x => x.id === giIngId)?.amount || 0) : 0;
-    // carb가 0이면 GI를 giBaseline으로 표시 (NaN 방지)
+    // giMeta는 state이므로 항상 최신 PHYTO_DATA 기반
+    const { giIngredientId, giBaseline, giWeight } = giMeta;
+    const giIngAmount = giIngredientId ? (ings.find(x => x.id === giIngredientId)?.amount || 0) : 0;
     const estimatedGi = carb > 0
       ? Math.round(giBaseline - (giIngAmount / Math.max(1, carb)) * giWeight)
       : giBaseline;
@@ -97,8 +130,7 @@
     const updateAmount = (id, val) => {
       setIngs(prev => prev.map(x => x.id === id ? { ...x, amount: Math.max(0, val) } : x));
     };
-
-    const resetIngs = () => setIngs(initialIngs);
+    const resetIngs = () => setIngs(readFormulaSnapshot().ings);
 
     const value = {
       ings, updateAmount, resetIngs,

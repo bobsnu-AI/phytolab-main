@@ -126,7 +126,7 @@
           <window.BriefLanding onLaunch={handleLaunch} />
         )}
         {screen === "workflow" && (
-          <FormulaProvider key={window.PHYTO_DATA?.product?.codename || "default"}>
+          <FormulaProvider key={(window.PHYTO_DATA?.product?.codename) || (brief && JSON.stringify(brief)) || "default"}>
             <Workflow brief={brief} onBackToBrief={handleBackToBrief} />
           </FormulaProvider>
         )}
