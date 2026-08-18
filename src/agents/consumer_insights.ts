@@ -275,8 +275,8 @@ async function analyzeWithLlm(
 ): Promise<{ reviews: any; topics: any[]; painPoints: any[]; pod: string; podBold: string[]; conclusion: string; conclusionBold: string[] } | null> {
   if (!snippets.length) return null;
 
-  // 최대 40개 스니펫으로 제한
-  const selected = snippets.slice(0, 40);
+  // 최대 150개 스니펫으로 제한
+  const selected = snippets.slice(0, 150);
   const conditionNames = conditions.map((c) => CONDITION_KEYWORDS[c] ? CONDITION_KEYWORDS[c].trend[0] : c).join("·");
 
   const userPrompt = `다음은 "${conditionNames}" 관련 네이버 블로그/뉴스/카페 게시글 스니펫 ${selected.length}건입니다.
@@ -315,7 +315,7 @@ JSON만 출력하세요.`;
       },
       { role: "user" as const, content: userPrompt },
     ];
-    const raw = await callAgentLlm(env, messages, { maxTokens: 1200 });
+    const raw = await callAgentLlm(env, messages, { maxTokens: 2000 });
     // JSON 추출
     let t = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
     const start = t.indexOf("{");
@@ -395,17 +395,17 @@ export async function fetchConsumerInsights(
   const [trendRaw, shoppingRaw, blogItems, newsItems, cafeItems] = await Promise.all([
     fetchSearchTrend(naverEnv, kw.trend),
     fetchShoppingInsight(naverEnv, kw.shopping),
-    fetchSearchItems(naverEnv, mainQuery, "blog", 20),
-    fetchSearchItems(naverEnv, mainQuery, "news", 15),
-    fetchSearchItems(naverEnv, mainQuery, "cafearticle", 15),
+    fetchSearchItems(naverEnv, mainQuery, "blog", 100),
+    fetchSearchItems(naverEnv, mainQuery, "news", 100),
+    fetchSearchItems(naverEnv, mainQuery, "cafearticle", 100),
   ]);
 
-  // 스니펫 수집 (최대 50건)
+  // 스니펫 수집 (최대 300건 → LLM 분석은 150건)
   const allItems = [...blogItems, ...newsItems, ...cafeItems];
   const snippets = allItems
     .map((item) => `${stripHtml(item.title)} — ${stripHtml(item.description)}`)
     .filter((s) => s.length > 20)
-    .slice(0, 50);
+    .slice(0, 300);
 
   const trendSummary = summarizeTrend(trendRaw);
   const shoppingSummary = summarizeShopping(shoppingRaw);
