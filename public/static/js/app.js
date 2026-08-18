@@ -9,7 +9,15 @@
     });
     const [activeAgents, setActiveAgents] = useState([]);
     const [chatOpen, setChatOpen] = useState(true);
+    const [mobileChatOpen, setMobileChatOpen] = useState(false);
+
+    // live 상태 — MobileBottomNav 점 표시용
+    const live = window.useAgentStream ? window.useAgentStream() : null;
+
     useEffect(() => { localStorage.setItem("phytolab-step", String(step)); }, [step]);
+
+    // 모바일에서 step 변경 시 chat drawer 자동 닫기
+    useEffect(() => { setMobileChatOpen(false); }, [step]);
 
     const briefSummary = React.useMemo(() => {
       if (!brief) return null;
@@ -86,6 +94,25 @@
               )}
             </div>
           </div>
+
+          {/* ── 모바일 전용 UI ── */}
+          {window.MobileBottomNav && (
+            <window.MobileBottomNav
+              step={step}
+              setStep={setStep}
+              chatOpen={mobileChatOpen}
+              setChatOpen={setMobileChatOpen}
+              liveStatus={live?.status}
+            />
+          )}
+          {window.MobileChatDrawer && (
+            <window.MobileChatDrawer
+              open={mobileChatOpen}
+              onClose={() => setMobileChatOpen(false)}
+              step={step}
+              onActiveAgentsChange={setActiveAgents}
+            />
+          )}
         </div>
       </AgentStreamProvider>
     );

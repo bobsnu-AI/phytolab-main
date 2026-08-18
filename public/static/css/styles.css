@@ -80,6 +80,10 @@ html, body { margin: 0; padding: 0; }
 html {
   zoom: 0.8;
 }
+/* 모바일에서는 zoom 해제 — 브라우저 기본 viewport 스케일 사용 */
+@media (max-width: 768px) {
+  html { zoom: 1; }
+}
 body {
   font-family: var(--font-sans);
   font-size: var(--density-fs);
@@ -2055,4 +2059,313 @@ body::before {
   color: var(--text-4);
   white-space: nowrap;
   align-self: center;
+}
+
+/* ============================================================
+   MOBILE RESPONSIVE  (≤768px)
+   ─────────────────────────────────────────────────────────
+   전략:
+   - App 레이아웃: 3열 grid → 단일 컬럼 full-height
+   - StepNav: 왼쪽 사이드바 → 하단 Bottom Nav 전환
+   - Chat Panel: 오른쪽 고정 패널 → 슬라이드업 Drawer
+   - main-col: 패딩/폰트 최적화
+   - 각 콘텐츠 카드: 단일 컬럼 스택
+   ============================================================ */
+
+/* ── 태블릿 (769-1000px): 기존 1000px 브레이크포인트 유지, 보강 ── */
+@media (max-width: 1000px) and (min-width: 769px) {
+  .titlebar { grid-template-columns: 200px 1fr 200px; }
+  .brand-sub { display: none; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   모바일 전체 (≤768px)
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── 앱 루트 레이아웃 ── */
+  .app {
+    grid-template-rows: 48px auto 1fr auto; /* titlebar / brief-strip / main / bottom-nav */
+    height: 100dvh;                          /* dvh: 주소창 있어도 정확한 뷰포트 */
+    overflow: hidden;
+  }
+
+  /* ── TitleBar ── */
+  .titlebar {
+    grid-template-columns: 1fr auto;         /* logo | right 버튼들만 */
+    padding: 0 14px;
+    height: 48px;
+  }
+  .titlebar-center { display: none; }        /* 가운데 pill/crumb 숨김 */
+  .titlebar-right { gap: 6px; }
+  .tbtn { padding: 5px 8px; font-size: 11px; }
+  .brand-name { font-size: 15px; }
+  .brand-sub  { display: none; }
+  .logo-mark  { width: 26px; height: 26px; }
+
+  /* ── Brief 스트립 ── */
+  .workflow-brief-strip {
+    padding: 0 12px;
+    height: 30px;
+    gap: 6px;
+  }
+  .workflow-brief-eyebrow { display: none; }
+  .workflow-brief-type-badge { display: none; }
+  .brief-regen-btn { display: none; }
+  .workflow-brief-summary { font-size: 11px; }
+
+  /* ── Workspace 그리드 → 단일 컬럼 ── */
+  .workspace,
+  .workspace.no-agent {
+    grid-template-columns: 1fr !important; /* StepNav + Chat 모두 숨기고 main만 */
+    grid-template-rows: 1fr;
+    overflow: hidden;
+  }
+
+  /* ── StepNav 사이드바 → 숨김 (Bottom Nav로 대체) ── */
+  .stepnav {
+    display: none !important;
+  }
+
+  /* ── Chat Panel → 숨김 (Drawer로 대체) ── */
+  .chat-panel-wrap,
+  .chat-toggle-tab {
+    display: none !important;
+  }
+
+  /* ── main-col ── */
+  .main-col {
+    padding: 12px 14px 80px;  /* 하단 80px: bottom nav 높이 + 여백 */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── AgentRoster (상단 줄) ── */
+  .agent-roster {
+    display: none;
+  }
+
+  /* ── Step 헤더 ── */
+  .step-header {
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .step-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .step-eyebrow { font-size: 9px; }
+  .step-title   { font-size: 18px; }
+  .step-desc    { font-size: 12px; }
+
+  /* ── KPI 그리드 ── */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+  }
+  .kpi { padding: 10px 12px; }
+  .kpi-value { font-size: 20px; }
+
+  /* ── 2열 그리드 → 1열 ── */
+  .two-col,
+  .nutrition-target-grid,
+  .cp-grid,
+  .lda-topics,
+  .painpoint-pod-grid,
+  .formula-grid,
+  .cost-grid,
+  .context-strip,
+  .naver-trend-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── 세그먼트 카드 ── */
+  .seg-grid { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+
+  /* ── 채널 그리드 ── */
+  .channel-grid { grid-template-columns: 1fr 1fr !important; }
+
+  /* ── 포지셔닝 맵 ── */
+  .pos-map-wrap { height: 220px; }
+
+  /* ── 매트릭스 테이블 스크롤 ── */
+  .matrix-scroll,
+  .ct-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── 영양성분 비교 테이블 ── */
+  .nc-table-wrap { overflow-x: auto; }
+
+  /* ── formula topbar ── */
+  .formula-topbar { grid-template-columns: 1fr !important; }
+
+  /* ── 뱃지 ── */
+  .badge { padding: 5px 8px; }
+  .badge-k { font-size: 9px; }
+  .badge-v { font-size: 11px; }
+
+  /* ── context-strip 아이템 ── */
+  .cs-item { padding: 10px 12px; }
+
+  /* ── RevealSection pending ── */
+  .reveal-pending { min-height: 60px; }
+  .reveal-pending-inner { padding: 12px 14px; gap: 8px; }
+
+  /* ── 출처 패널 ── */
+  .src-panel { margin-top: 10px; }
+  .src-item {
+    grid-template-columns: 40px 1fr;
+    padding: 8px 10px;
+  }
+  .src-date { display: none; }
+
+
+  /* ══ BOTTOM NAVIGATION BAR ════════════════════════════ */
+  .mobile-bottom-nav {
+    display: flex !important;               /* JS에서 렌더, CSS에서 보이게 */
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 56px;
+    background: var(--bg-1);
+    border-top: 1px solid var(--line);
+    z-index: 200;
+    align-items: stretch;
+    padding: 0;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .mobile-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.12s;
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    padding: 6px 0 8px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .mobile-nav-item.active {
+    color: var(--accent);
+    background: oklch(from var(--accent) l c h / 0.08);
+  }
+  .mobile-nav-item:active { background: oklch(from var(--accent) l c h / 0.14); }
+  .mobile-nav-icon {
+    font-size: 16px;
+    line-height: 1;
+  }
+  .mobile-nav-label {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .mobile-nav-dot {
+    position: absolute;
+    top: 6px; right: calc(50% - 14px);
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+
+  /* ══ CHAT DRAWER ══════════════════════════════════════ */
+  .mobile-chat-drawer {
+    display: flex !important;
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    flex-direction: column;
+    pointer-events: none;
+    touch-action: none;
+  }
+  .mobile-chat-drawer.open .mobile-drawer-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .mobile-chat-drawer.open .mobile-drawer-panel {
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .mobile-drawer-backdrop {
+    position: absolute;
+    inset: 0;
+    background: oklch(0 0 0 / 0.55);
+    opacity: 0;
+    transition: opacity 0.28s ease;
+  }
+  .mobile-drawer-panel {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 72dvh;
+    background: var(--bg-1);
+    border-radius: 16px 16px 0 0;
+    border-top: 1px solid var(--line);
+    transform: translateY(100%);
+    transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .mobile-drawer-handle {
+    width: 36px; height: 4px;
+    background: var(--line-strong);
+    border-radius: 2px;
+    margin: 10px auto 6px;
+    flex-shrink: 0;
+  }
+  .mobile-drawer-panel .agent-panel {
+    /* Chat 패널을 drawer 안에서 full-height로 */
+    flex: 1;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+  .mobile-drawer-panel .agent-stream {
+    flex: 1;
+  }
+
+} /* end @media ≤768px */
+
+
+/* ── 아주 작은 폰 (≤380px) 추가 조정 ── */
+@media (max-width: 380px) {
+  .kpi-grid { grid-template-columns: 1fr !important; }
+  .seg-grid  { grid-template-columns: 1fr !important; }
+  .main-col  { padding: 10px 10px 80px; }
+  .step-title { font-size: 16px; }
+}
+
+/* ── Brief Landing 모바일 ── */
+@media (max-width: 768px) {
+  .brief-topbar {
+    grid-template-columns: 1fr auto;
+    padding: 12px 16px;
+  }
+  .brief-topbar-crumb { display: none; }
+  .brief-hero { padding: 20px 16px 12px; }
+  .brief-hero-title { font-size: 22px !important; }
+  .brief-hero-sub   { font-size: 13px !important; }
+  .brief-workspace  { grid-template-columns: 1fr; gap: 0; }
+  .brief-agent-panel { display: none; }   /* 모바일에선 agent 패널 숨김 */
+  .brief-axis-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+  .brief-axis-lead, .brief-axis-summary { display: none; }
+  .brief-axis-head  { grid-template-columns: 28px 1fr 28px; }
+  .brief-lead-grid  { grid-template-columns: 1fr; }
+  .brief-footer     { padding: 14px 16px; }
+  .brief-footer-inner { flex-direction: column; gap: 10px; }
+  .brief-launch-btn { width: 100%; justify-content: center; }
+  .brief-summary-scores { grid-template-columns: repeat(2, 1fr) !important; }
+  .brief-main { padding: 0 16px 100px; }  /* bottom 여유 */
 }

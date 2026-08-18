@@ -47,6 +47,7 @@ app.get('/', (c) => {
 <script type="text/babel" src="/static/js/formula_context.js?v=20260818d"></script>
 <script type="text/babel" src="/static/js/live_agent_context.js?v=20260818d"></script>
 <script type="text/babel" src="/static/js/shell_components.js?v=20260818d"></script>
+<script type="text/babel" src="/static/js/mobile_ui.js?v=20260818d"></script>
 <script type="text/babel" src="/static/js/steps/step1_market.jsx?v=20260818d"></script>
 <script type="text/babel" src="/static/js/steps/step2_target.jsx?v=20260818d"></script>
 <script type="text/babel" src="/static/js/steps/step3_formula.jsx?v=20260818d"></script>
