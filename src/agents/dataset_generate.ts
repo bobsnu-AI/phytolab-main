@@ -129,7 +129,13 @@ async function generatePartB2(env: LlmEnv, brief: ConfirmedBrief) {
 async function generatePartC(env: LlmEnv, brief: ConfirmedBrief) {
   const prompt = `브리프: ${briefDescription(brief)}
 
-배합 원료(10-12개)와 원가 구조를 아래 스키마로 채워 JSON 하나만 출력하세요. id는 3-5자 영문소문자 고유코드, giIngredientId는 실제 id와 정확히 일치, role "담체" 1개 필수, amount 합 150-220g.
+배합 원료(10-12개)와 원가 구조를 아래 스키마로 채워 JSON 하나만 출력하세요.
+규칙:
+- id: 3-5자 영문소문자 고유코드 (중복 금지)
+- role: 반드시 아래 7개 중 하나만 사용 — "탄수" | "단백" | "지방" | "미량" | "안정" | "감미" | "관능" | "담체"
+  (영문/혼용 절대 금지: protein→단백, fat→지방, carb→탄수, micro→미량, stabilizer→안정, sweetener→감미, flavor→관능, carrier→담체)
+- "담체" role 1개 필수 (정제수), amount 합계 150-220g
+- giIngredientId: ingredients 배열의 실제 id 값과 정확히 일치
 
 {"formula":{"ingredients":[{"id":"wpi","name":"유청단백","amount":20,"unit":"g","role":"단백","price":12,"moq":25,"yieldPct":98},{"id":"iso","name":"이소말툴로스","amount":15,"unit":"g","role":"탄수","price":5,"moq":50,"yieldPct":99},{"id":"mct","name":"MCT오일","amount":5,"unit":"g","role":"지방","price":8,"moq":20,"yieldPct":99},{"id":"vdmx","name":"비타민D믹스","amount":0.05,"unit":"g","role":"미량","price":300,"moq":1,"yieldPct":95},{"id":"xgm","name":"잔탄검","amount":0.3,"unit":"g","role":"안정","price":15,"moq":5,"yieldPct":99},{"id":"flv","name":"바닐라향","amount":0.5,"unit":"g","role":"관능","price":80,"moq":2,"yieldPct":100},{"id":"suc","name":"수크랄로스","amount":0.02,"unit":"g","role":"감미","price":500,"moq":0.5,"yieldPct":100},{"id":"wtr","name":"정제수","amount":160,"unit":"g","role":"담체","price":0.01,"moq":1000,"yieldPct":100}],"flavors":["바닐라","무향","딸기"],"formats":["액상팩 200ml","파우치"],"roleTargets":{"carb":15,"protein":20,"fat":5,"micro":0.05},"giIngredientId":"iso","efficacyLabels":{"carb":"저GI 탄수화물","protein":"근육 단백질","fat":"에너지 지방","micro":"비타민 미네랄"},"efficacyTargets":{"carb":"혈당 지수 40 이하","protein":"류신 2.4g 이상","fat":"MCT 포함","micro":"비타민D 15μg"}},"cost":{"packaging":{"liquidPack":250,"outerBox":180,"shipperBox":120,"label":80,"sterilization":200},"overhead":{"labor":400,"utility":250,"qa":300,"depreciation":200,"logistics":350},"target":{"wholesaleMarkup":1.6,"retailMarkup":2.4,"msrp":45000}}}`;
   return callJsonLlm(env, prompt, 1100);

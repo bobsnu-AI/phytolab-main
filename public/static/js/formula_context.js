@@ -6,23 +6,71 @@
 
   // role 값 정규화: LLM이 영문/혼용으로 생성할 수 있으므로 한국어로 통일
   const ROLE_NORMALIZE = {
-    "탄수": "탄수", "carb": "탄수", "탄수화물": "탄수",
-    "단백": "단백", "protein": "단백", "단백질": "단백",
-    "지방": "지방", "fat": "지방", "oil": "지방",
+    // 탄수
+    "탄수": "탄수", "carb": "탄수", "탄수화물": "탄수", "당질": "탄수",
+    "isomalt": "탄수", "glucose": "탄수", "fructose": "탄수", "sucrose": "탄수",
+    "starch": "탄수", "fiber": "탄수", "식이섬유": "탄수", "섬유": "탄수",
+    // 단백
+    "단백": "단백", "protein": "단백", "단백질": "단백", "아미노산": "단백",
+    "whey": "단백", "casein": "단백", "collagen": "단백", "콜라겐": "단백",
+    "leucine": "단백", "류신": "단백", "bcaa": "단백", "peptide": "단백",
+    "펩타이드": "단백", "글루타민": "단백", "glutamine": "단백",
+    // 지방
+    "지방": "지방", "fat": "지방", "oil": "지방", "오일": "지방",
+    "mct": "지방", "omega": "지방", "오메가": "지방", "dha": "지방", "epa": "지방",
+    "mufa": "지방", "pufa": "지방", "지질": "지방",
+    // 미량
     "미량": "미량", "micro": "미량", "vitamin": "미량", "mineral": "미량",
+    "비타민": "미량", "미네랄": "미량", "mix": "미량", "복합": "미량",
+    "zinc": "미량", "iron": "미량", "calcium": "미량", "칼슘": "미량",
+    "magnesium": "미량", "마그네슘": "미량",
+    // 안정
     "안정": "안정", "stable": "안정", "stabilizer": "안정", "emul": "안정",
-    "감미": "감미", "sweet": "감미", "sweetener": "감미",
-    "관능": "관능", "flavor": "관능", "향미": "관능",
+    "gum": "안정", "검": "안정", "유화": "안정", "증점": "안정",
+    "lecithin": "안정", "레시틴": "안정",
+    // 감미
+    "감미": "감미", "sweet": "감미", "sweetener": "감미", "감미료": "감미",
+    "sucralose": "감미", "stevia": "감미", "스테비아": "감미",
+    // 관능
+    "관능": "관능", "flavor": "관능", "향미": "관능", "향": "관능",
+    "fragrance": "관능", "aroma": "관능",
+    // 담체
     "담체": "담체", "carrier": "담체", "water": "담체", "정제수": "담체",
-    // "기능" role: 콜라겐/글루코사민 등 기능성 원료 → 단백질 계열로 열량 계산
+    "물": "담체", "base": "담체",
+    // 기능성 원료 → 단백 계열(열량 계산)
     "기능": "단백", "functional": "단백", "func": "단백",
-    "efficacy": "단백", "active": "단백",
+    "efficacy": "단백", "active": "단백", "활성": "단백",
   };
+
+  // 부분 일치 폴백: 정확 매칭 실패 시 role 문자열에 키워드가 포함되면 매핑
+  const ROLE_CONTAINS = [
+    ["탄수",   "탄수"], ["carb",   "탄수"], ["당",     "탄수"], ["fiber",  "탄수"],
+    ["단백",   "단백"], ["protein","단백"], ["아미노", "단백"], ["whey",   "단백"],
+    ["collagen","단백"],["콜라겐", "단백"],
+    ["지방",   "지방"], ["fat",    "지방"], ["oil",    "지방"], ["mct",    "지방"],
+    ["omega",  "지방"], ["오메가", "지방"],
+    ["vitamin","미량"], ["mineral","미량"], ["비타민", "미량"], ["미네랄", "미량"],
+    ["gum",    "안정"], ["검",     "안정"], ["emul",   "안정"],
+    ["sweet",  "감미"], ["감미",   "감미"],
+    ["flavor", "관능"], ["향",     "관능"],
+    ["water",  "담체"], ["정제수", "담체"],
+  ];
+
+  function normalizeRole(raw) {
+    if (!raw) return raw;
+    const exact = ROLE_NORMALIZE[raw] || ROLE_NORMALIZE[raw.toLowerCase()];
+    if (exact) return exact;
+    const lo = raw.toLowerCase();
+    for (const [kw, mapped] of ROLE_CONTAINS) {
+      if (lo.includes(kw.toLowerCase())) return mapped;
+    }
+    return raw; // 매핑 실패 시 원본 유지
+  }
 
   function normalizeIngs(ings) {
     return (ings || []).map(x => ({
       ...x,
-      role: ROLE_NORMALIZE[x.role] || ROLE_NORMALIZE[(x.role || "").toLowerCase()] || x.role,
+      role: normalizeRole(x.role),
     }));
   }
 
