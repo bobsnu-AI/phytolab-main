@@ -282,6 +282,19 @@ function IngredientPriceLookup({ onApplyPrice }) {
 }
 
 /* ─────────────────────────────────────────────────────────
+   NaN-safe 포맷 헬퍼
+───────────────────────────────────────────────────────── */
+function fmtWon(v, opts) {
+  return isFinite(v) ? v.toLocaleString(undefined, opts || { maximumFractionDigits: 0 }) : "계산 중";
+}
+function fmtFixed(v, d) {
+  return isFinite(v) ? v.toFixed(d ?? 1) : "–";
+}
+function fmtWonFixed(v, d) {
+  return isFinite(v) ? v.toFixed(d ?? 0) : "계산 중";
+}
+
+/* ─────────────────────────────────────────────────────────
    Step4Cost 메인 컴포넌트
 ───────────────────────────────────────────────────────── */
 const Step4Cost = () => {
@@ -365,12 +378,12 @@ const Step4Cost = () => {
   const fee = channelFees[channel] || 0;
   const netRevenue = msrp * (1 - fee);
   const opProfit = netRevenue - totalCost;
-  const opProfitPct = (opProfit / msrp) * 100;
+  const opProfitPct = msrp > 0 ? (opProfit / msrp) * 100 : 0;
 
   const parts = [
-    { label: "원료비", value: rawPerBox, color: "oklch(0.72 0.16 235)" },
-    { label: "부자재·살균", value: packPerBox, color: "oklch(0.78 0.14 195)" },
-    { label: "제조간접비", value: ohAdjusted, color: "oklch(0.7 0.16 275)" },
+    { label: "원료비",     value: isFinite(rawPerBox)   ? rawPerBox   : 0, color: "oklch(0.72 0.16 235)" },
+    { label: "부자재·살균", value: isFinite(packPerBox)  ? packPerBox  : 0, color: "oklch(0.78 0.14 195)" },
+    { label: "제조간접비", value: isFinite(ohAdjusted)  ? ohAdjusted  : 0, color: "oklch(0.7 0.16 275)" },
   ];
   const total = parts.reduce((s,x)=>s+x.value, 0);
 
@@ -383,8 +396,8 @@ const Step4Cost = () => {
           <div className="step-desc">배치 규모·수율·채널을 조정하며 실질 손익구조를 확인합니다</div>
         </div>
         <div className="step-badges">
-          <div className="badge badge-accent"><span className="badge-k">MARGIN</span><span className="badge-v mono">{marginPct.toFixed(1)}%</span></div>
-          <div className="badge"><span className="badge-k">GM/박스</span><span className="badge-v mono">₩{(msrp - totalCost).toLocaleString(undefined, {maximumFractionDigits:0})}</span></div>
+          <div className="badge badge-accent"><span className="badge-k">MARGIN</span><span className="badge-v mono">{fmtFixed(marginPct, 1)}%</span></div>
+          <div className="badge"><span className="badge-k">GM/박스</span><span className="badge-v mono">₩{fmtWon(msrp - totalCost)}</span></div>
           <button className="ip-lookup-toggle" onClick={() => setShowPriceLookup(v => !v)}>
             🌾 {showPriceLookup ? "시세조회 닫기" : "원료 시세 조회"}
           </button>
@@ -400,23 +413,23 @@ const Step4Cost = () => {
       <div className="cost-kpi-row">
         <div className="ckpi">
           <div className="ckpi-label">박스당 총원가</div>
-          <div className="ckpi-value mono">₩{totalCost.toLocaleString(undefined, {maximumFractionDigits:0})}</div>
-          <div className="ckpi-sub mono">/ {servingsPerBox}팩 · ₩{(totalCost/servingsPerBox).toFixed(0)}/팩</div>
+          <div className="ckpi-value mono">₩{fmtWon(totalCost)}</div>
+          <div className="ckpi-sub mono">/ {servingsPerBox}팩 · ₩{fmtWonFixed(isFinite(totalCost) && servingsPerBox > 0 ? totalCost / servingsPerBox : NaN, 0)}/팩</div>
         </div>
         <div className="ckpi">
           <div className="ckpi-label">권장 도매가</div>
-          <div className="ckpi-value mono">₩{wholesale.toLocaleString(undefined, {maximumFractionDigits:0})}</div>
+          <div className="ckpi-value mono">₩{fmtWon(wholesale)}</div>
           <div className="ckpi-sub">× {c.target.wholesaleMarkup} 마크업</div>
         </div>
         <div className="ckpi">
           <div className="ckpi-label">목표 MSRP</div>
-          <div className="ckpi-value mono">₩{msrp.toLocaleString()}</div>
+          <div className="ckpi-value mono">₩{fmtWon(msrp)}</div>
           <div className="ckpi-sub">경쟁 밴드 3.8–5.4만원</div>
         </div>
         <div className="ckpi ckpi-primary">
           <div className="ckpi-label">영업이익률 <span className="mono">({channel})</span></div>
-          <div className="ckpi-value mono">{opProfitPct.toFixed(1)}%</div>
-          <div className="ckpi-sub mono">순수익 ₩{opProfit.toLocaleString(undefined, {maximumFractionDigits:0})}/박스</div>
+          <div className="ckpi-value mono">{fmtFixed(opProfitPct, 1)}%</div>
+          <div className="ckpi-sub mono">순수익 ₩{fmtWon(opProfit)}/박스</div>
         </div>
       </div>
       </Reveal>
@@ -434,24 +447,30 @@ const Step4Cost = () => {
           <div className="donut-wrap">
             <svg viewBox="0 0 200 200" className="donut">
               {(() => {
+                if (total <= 0) return (
+                  <circle cx="100" cy="100" r="80" fill="none" strokeWidth="26"
+                    stroke="oklch(0.3 0 0)" strokeDasharray="502.65 0" strokeDashoffset="0"
+                    transform="rotate(-90 100 100)" />
+                );
                 let cum = 0;
                 return parts.map((p, i) => {
-                  const pct = p.value/total;
+                  const pct = p.value / total;
                   const dash = pct * 502.65;
+                  const safeDash = isFinite(dash) ? dash : 0;
                   const el = (
                     <circle key={i} cx="100" cy="100" r="80"
                       fill="none" strokeWidth="26"
                       stroke={p.color}
-                      strokeDasharray={`${dash} ${502.65 - dash}`}
+                      strokeDasharray={`${safeDash} ${502.65 - safeDash}`}
                       strokeDashoffset={-cum}
                       transform="rotate(-90 100 100)"
                     />
                   );
-                  cum += dash;
+                  cum += safeDash;
                   return el;
                 });
               })()}
-              <text x="100" y="94" textAnchor="middle" className="donut-num mono">₩{Math.round(total).toLocaleString()}</text>
+              <text x="100" y="94" textAnchor="middle" className="donut-num mono">₩{isFinite(total) ? Math.round(total).toLocaleString() : "–"}</text>
               <text x="100" y="112" textAnchor="middle" className="donut-sub mono">TOTAL / BOX</text>
             </svg>
             <div className="donut-legend">
@@ -460,7 +479,7 @@ const Step4Cost = () => {
                   <span className="donut-dot" style={{background: p.color}}></span>
                   <div className="donut-item-body">
                     <div className="donut-item-label">{p.label}</div>
-                    <div className="donut-item-value mono">₩{p.value.toLocaleString(undefined, {maximumFractionDigits:0})} <span className="donut-pct">({(p.value/total*100).toFixed(1)}%)</span></div>
+                    <div className="donut-item-value mono">₩{fmtWon(p.value)} <span className="donut-pct">({fmtFixed(total > 0 ? p.value / total * 100 : NaN, 1)}%)</span></div>
                   </div>
                 </div>
               ))}
@@ -486,7 +505,7 @@ const Step4Cost = () => {
                 </div>
                 <div className="panel-sub mono">{servingsPerBox}팩/박스 · 수율반영</div>
               </div>
-              <div className="mono panel-tot">₩{rawPerBox.toLocaleString(undefined, {maximumFractionDigits:0})}</div>
+              <div className="mono panel-tot">₩{fmtWon(rawPerBox)}</div>
             </div>
 
             <div className="price-mode-tabs">
@@ -535,7 +554,7 @@ const Step4Cost = () => {
                       ) : price.toFixed(1)}
                     </div>
                     <div className="mono">{ing.yieldPct}%</div>
-                    <div className="mono rt-cost">₩{boxCost.toLocaleString(undefined, {maximumFractionDigits:0})}</div>
+                    <div className="mono rt-cost">₩{fmtWon(boxCost)}</div>
                   </div>
                 );
               })}
@@ -562,19 +581,19 @@ const Step4Cost = () => {
             <div className="ch-summary">
               <div className="chs-row">
                 <span>소비자가 (MSRP)</span>
-                <span className="mono">₩{msrp.toLocaleString()}</span>
+                <span className="mono">₩{fmtWon(msrp)}</span>
               </div>
               <div className="chs-row minus">
-                <span>채널 수수료 · {channel} <span className="mono">({(fee*100).toFixed(0)}%)</span></span>
-                <span className="mono">− ₩{(msrp*fee).toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                <span>채널 수수료 · {channel} <span className="mono">({fmtFixed(fee * 100, 0)}%)</span></span>
+                <span className="mono">− ₩{fmtWon(msrp * fee)}</span>
               </div>
               <div className="chs-row minus">
                 <span>제조 원가</span>
-                <span className="mono">− ₩{totalCost.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                <span className="mono">− ₩{fmtWon(totalCost)}</span>
               </div>
               <div className="chs-row total">
-                <span>영업이익 <span className="chs-sub mono">({opProfitPct.toFixed(1)}%)</span></span>
-                <span className={`mono ${opProfit > 0 ? "up" : "down"}`}>₩{opProfit.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                <span>영업이익 <span className="chs-sub mono">({fmtFixed(opProfitPct, 1)}%)</span></span>
+                <span className={`mono ${isFinite(opProfit) && opProfit > 0 ? "up" : "down"}`}>₩{fmtWon(opProfit)}</span>
               </div>
             </div>
           </div>
@@ -591,15 +610,15 @@ const Step4Cost = () => {
             <div className="annual">
               <div className="annual-item">
                 <div className="annual-label">연 매출</div>
-                <div className="annual-val mono">₩{(batchSize*12*msrp/1e8).toFixed(1)}<span className="annual-unit">억</span></div>
+                <div className="annual-val mono">₩{fmtFixed(batchSize * 12 * msrp / 1e8, 1)}<span className="annual-unit">억</span></div>
               </div>
               <div className="annual-item">
                 <div className="annual-label">연 매출원가</div>
-                <div className="annual-val mono">₩{(batchSize*12*totalCost/1e8).toFixed(1)}<span className="annual-unit">억</span></div>
+                <div className="annual-val mono">₩{fmtFixed(batchSize * 12 * totalCost / 1e8, 1)}<span className="annual-unit">억</span></div>
               </div>
               <div className="annual-item annual-item-primary">
                 <div className="annual-label">연 영업이익</div>
-                <div className="annual-val mono">₩{(batchSize*12*opProfit/1e8).toFixed(1)}<span className="annual-unit">억</span></div>
+                <div className="annual-val mono">₩{fmtFixed(batchSize * 12 * opProfit / 1e8, 1)}<span className="annual-unit">억</span></div>
               </div>
             </div>
           </div>
