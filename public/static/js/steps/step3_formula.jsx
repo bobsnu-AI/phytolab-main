@@ -18,10 +18,16 @@ const Step3Formula = () => {
   const Reveal = window.RevealSection || (({ children }) => children);
 
   // FormulaContext 사용, 없으면 로컬 state 폴백
-  const [localIngs, setLocalIngs] = useState(initial.ingredients);
-  const [localFlavor, setLocalFlavor] = useState("바닐라");
-  const [localFormat, setLocalFormat] = useState("액상팩 200ml");
-  const [localServings, setLocalServings] = useState(24);
+  const [localIngs, setLocalIngs] = useState(
+    window.normalizeIngs ? window.normalizeIngs(initial.ingredients) : initial.ingredients
+  );
+  const [localFlavor, setLocalFlavor] = useState(
+    (initial.flavors && initial.flavors[0]) || "바닐라"
+  );
+  const [localFormat, setLocalFormat] = useState(
+    (initial.formats && initial.formats[0]) || "액상팩 200ml"
+  );
+  const [localServings, setLocalServings] = useState(initial.servingsPerBox || 24);
 
   const ings = f?.ings || localIngs;
   const flavor = f?.flavor ?? localFlavor;
@@ -56,7 +62,11 @@ const Step3Formula = () => {
     const active = x.id === "wat" ? waterAmount : x.amount;
     return s + active * x.price / (x.yieldPct/100);
   }, 0);
-  const estimatedGi = f?.estimatedGi ?? Math.round(initial.giBaseline - ((ings.find(x => x.id === initial.giIngredientId)?.amount || 0) / Math.max(1, carb)) * initial.giWeight);
+  const estimatedGi = f?.estimatedGi ?? (
+    carb > 0
+      ? Math.round(initial.giBaseline - ((ings.find(x => x.id === initial.giIngredientId)?.amount || 0) / Math.max(1, carb)) * initial.giWeight)
+      : (initial.giBaseline ?? 75)
+  );
 
   const formats = initial.formats;
 
@@ -103,19 +113,65 @@ const Step3Formula = () => {
         </div>
       </div>
 
-      {/* FSMP 영양기준 준수 상단 스트립 */}
-      <Reveal id="compliance" label="표준제조기준 준수도" agent="rega">
-      <div className="compliance-strip">
-        <div className="cp-header mono">FSMP 표준제조기준 준수도 · REALTIME</div>
-        <div className="cp-grid">
-          <ComplianceCell label="열량 200±20 kcal" value={kcal} min={180} max={220} unit="kcal" />
-          <ComplianceCell label="탄수 45–50%en" value={carbPct} min={45} max={50} unit="%en" />
-          <ComplianceCell label="단백 18–22%en" value={proteinPct} min={18} max={22} unit="%en" />
-          <ComplianceCell label="지방 30–38%en" value={fatPct} min={30} max={38} unit="%en" />
-          <ComplianceCell label="GI ≤ 55 (저GI)" value={estimatedGi} min={0} max={55} unit="GI" inverse />
-        </div>
-      </div>
-      </Reveal>
+      {/* 영양기준 준수 상단 스트립 — 카테고리/reg별 동적 기준 */}
+      {(() => {
+        const reg = PHYTO_DATA.product?.regClass || PHYTO_DATA.product?.reg || "";
+        const cat = PHYTO_DATA.product?.category || "";
+        // reg/category에 따른 기준 분기
+        const isFsmp = /FSMP|fsmp|특수의료용도/i.test(reg + cat);
+        const isSenior = /senior|고령|seniorks/i.test(reg + cat);
+        const isHfunc = /hfunc|건강기능|기능성/i.test(reg + cat);
+
+        let headerLabel, compCells;
+        if (isFsmp) {
+          headerLabel = "FSMP 표준제조기준 준수도";
+          compCells = (<>
+            <ComplianceCell label="열량 200±20 kcal" value={kcal} min={180} max={220} unit="kcal" />
+            <ComplianceCell label="탄수 45–50%en" value={carbPct} min={45} max={50} unit="%en" />
+            <ComplianceCell label="단백 18–22%en" value={proteinPct} min={18} max={22} unit="%en" />
+            <ComplianceCell label="지방 30–38%en" value={fatPct} min={30} max={38} unit="%en" />
+            <ComplianceCell label="GI ≤ 55 (저GI)" value={estimatedGi} min={0} max={55} unit="GI" inverse />
+          </>);
+        } else if (isSenior) {
+          headerLabel = "고령친화식품 기준 준수도";
+          compCells = (<>
+            <ComplianceCell label="열량 ≥100 kcal/100g" value={kcal} min={100} max={400} unit="kcal" />
+            <ComplianceCell label="단백 ≥10%en" value={proteinPct} min={10} max={40} unit="%en" />
+            <ComplianceCell label="지방 ≤35%en" value={fatPct} min={0} max={35} unit="%en" inverse />
+            <ComplianceCell label="나트륨 ≤300mg" value={PHYTO_DATA.target?.nutritionTarget?.sodium?.value ?? 150} min={0} max={300} unit="mg" inverse />
+            <ComplianceCell label="GI ≤ 65" value={estimatedGi} min={0} max={65} unit="GI" inverse />
+          </>);
+        } else if (isHfunc) {
+          headerLabel = "건강기능식품 기준 준수도";
+          compCells = (<>
+            <ComplianceCell label="열량 적정" value={kcal} min={50} max={500} unit="kcal" />
+            <ComplianceCell label="단백 10–30%en" value={proteinPct} min={10} max={30} unit="%en" />
+            <ComplianceCell label="지방 ≤40%en" value={fatPct} min={0} max={40} unit="%en" inverse />
+            <ComplianceCell label="탄수 30–60%en" value={carbPct} min={30} max={60} unit="%en" />
+            <ComplianceCell label="GI ≤ 60" value={estimatedGi} min={0} max={60} unit="GI" inverse />
+          </>);
+        } else {
+          // 일반 식품/라벨 제품 — 광범위 기준
+          headerLabel = "영양기준 준수도";
+          compCells = (<>
+            <ComplianceCell label="열량 100–500 kcal" value={kcal} min={100} max={500} unit="kcal" />
+            <ComplianceCell label="탄수 40–65%en" value={carbPct} min={40} max={65} unit="%en" />
+            <ComplianceCell label="단백 10–35%en" value={proteinPct} min={10} max={35} unit="%en" />
+            <ComplianceCell label="지방 ≤40%en" value={fatPct} min={0} max={40} unit="%en" inverse />
+            <ComplianceCell label="GI" value={estimatedGi} min={0} max={100} unit="GI" inverse />
+          </>);
+        }
+        return (
+          <Reveal id="compliance" label="표준제조기준 준수도" agent="rega">
+          <div className="compliance-strip">
+            <div className="cp-header mono">{headerLabel} · REALTIME</div>
+            <div className="cp-grid">
+              {compCells}
+            </div>
+          </div>
+          </Reveal>
+        );
+      })()}
 
       <div className="formula-grid">
         <Reveal id="formula_table" label="배합표" agent="rena">
