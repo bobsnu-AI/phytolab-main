@@ -20,6 +20,10 @@ const Step1Market = () => {
   const nutritionCompare = PHYTO_DATA.nutritionCompare;
   const Reveal = window.RevealSection || (({ children }) => children);
 
+  // 출처 목록 접기/펼치기 상태
+  const [srcOpen, setSrcOpen] = React.useState(false);
+  const [srcFilter, setSrcFilter] = React.useState("all"); // all | blog | news | cafe
+
   // 포지셔닝 맵: X = 가격, Y = 임상근거 강도
   const ourStrength = product.targetEvidenceStrength;
   const ourPrice = product.targetPrice;
@@ -451,6 +455,63 @@ const Step1Market = () => {
           <div className="callout-text">{boldify(concept.conclusion, concept.conclusionBold)}</div>
         </div>
       </Reveal>
+
+      {/* 수집 원문 출처 목록 — sourceItems 있을 때만 표시 */}
+      {concept.sourceKey === "naver_realtime" && Array.isArray(concept.sourceItems) && concept.sourceItems.length > 0 && (() => {
+        const TYPE_LABEL = { blog: "블로그", news: "뉴스", cafe: "카페" };
+        const TYPE_COLOR = { blog: "src-blog", news: "src-news", cafe: "src-cafe" };
+        const filtered = srcFilter === "all"
+          ? concept.sourceItems
+          : concept.sourceItems.filter(x => x.type === srcFilter);
+        const counts = { all: concept.sourceItems.length };
+        ["blog","news","cafe"].forEach(t => {
+          counts[t] = concept.sourceItems.filter(x => x.type === t).length;
+        });
+        return (
+          <div className="panel src-panel">
+            <button className="src-panel-toggle" onClick={() => setSrcOpen(v => !v)}>
+              <span className="panel-title">
+                수집 원문 출처
+                <span className="src-count-badge mono">{concept.sourceItems.length}건</span>
+                <span className="naver-badge mono">NAVER</span>
+              </span>
+              <span className="src-toggle-icon mono">{srcOpen ? "▲ 접기" : "▼ 펼치기"}</span>
+            </button>
+            {srcOpen && (
+              <div className="src-body">
+                {/* 타입 필터 탭 */}
+                <div className="src-filter-row">
+                  {["all","blog","news","cafe"].map(t => (
+                    <button key={t}
+                      className={`src-filter-btn mono${srcFilter === t ? " active" : ""}`}
+                      onClick={() => setSrcFilter(t)}>
+                      {t === "all" ? `전체 ${counts.all}` : `${TYPE_LABEL[t]} ${counts[t]}`}
+                    </button>
+                  ))}
+                </div>
+                {/* 출처 목록 */}
+                <div className="src-list">
+                  {filtered.map((item, i) => (
+                    <a key={i} href={item.link} target="_blank" rel="noopener noreferrer"
+                      className="src-item">
+                      <span className={`src-type-tag mono ${TYPE_COLOR[item.type]}`}>
+                        {TYPE_LABEL[item.type]}
+                      </span>
+                      <span className="src-title">{item.title}</span>
+                      {item.snippet && (
+                        <span className="src-snippet">{item.snippet}</span>
+                      )}
+                      {item.date && (
+                        <span className="src-date mono">{item.date}</span>
+                      )}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 };

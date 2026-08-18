@@ -1921,3 +1921,138 @@ body::before {
 .nt-bar-shop {
   background: oklch(0.6 0.2 260);
 }
+
+/* ── 수집 원문 출처 패널 ── */
+.src-panel {
+  padding: 0;
+  overflow: hidden;
+}
+.src-panel-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  gap: 12px;
+}
+.src-panel-toggle:hover { background: var(--bg-2); }
+.src-panel-toggle .panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.src-count-badge {
+  background: var(--bg-3);
+  color: var(--text-2);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+.src-toggle-icon {
+  font-size: 10px;
+  color: var(--text-3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.src-body {
+  border-top: 1px solid var(--line);
+  padding: 12px 16px 16px;
+}
+.src-filter-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.src-filter-btn {
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.src-filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+.src-filter-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-0);
+}
+.src-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.src-list::-webkit-scrollbar { width: 4px; }
+.src-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+.src-item {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  padding: 10px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s;
+  align-items: start;
+}
+.src-item:hover {
+  border-color: var(--accent);
+  background: oklch(from var(--accent) l c h / 0.06);
+}
+.src-item:hover .src-title { color: var(--accent); }
+.src-type-tag {
+  grid-row: 1;
+  grid-column: 1;
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  text-align: center;
+  align-self: center;
+}
+.src-blog  { background: oklch(0.55 0.22 142 / 0.15); color: oklch(0.72 0.18 142); border: 1px solid oklch(0.55 0.22 142 / 0.3); }
+.src-news  { background: oklch(0.6 0.18 240 / 0.15);  color: oklch(0.72 0.16 240); border: 1px solid oklch(0.6 0.18 240 / 0.3); }
+.src-cafe  { background: oklch(0.65 0.16 60 / 0.15);  color: oklch(0.78 0.14 60);  border: 1px solid oklch(0.65 0.16 60 / 0.3); }
+.src-title {
+  grid-row: 1;
+  grid-column: 2;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-1);
+  line-height: 1.4;
+  transition: color 0.15s;
+  word-break: break-word;
+}
+.src-snippet {
+  grid-row: 2;
+  grid-column: 2;
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+  word-break: break-word;
+}
+.src-date {
+  grid-row: 1;
+  grid-column: 3;
+  font-size: 9px;
+  color: var(--text-4);
+  white-space: nowrap;
+  align-self: center;
+}

@@ -240,6 +240,14 @@ interface ReviewWord { t: string; w: number }
 interface Topic { id: string; name: string; docs: number; totalDocs: number; color: string; kws: { t: string; w: number }[] }
 interface PainPoint { label: string; text: string }
 
+export interface SourceItem {
+  title: string;
+  link: string;
+  date: string;
+  type: "blog" | "news" | "cafe";
+  snippet: string;
+}
+
 export interface ConsumerInsightData {
   sourceKey: "naver_realtime";
   sourceLabel: string;
@@ -266,6 +274,7 @@ export interface ConsumerInsightData {
   podBold: string[];
   conclusion: string;
   conclusionBold: string[];
+  sourceItems: SourceItem[];
 }
 
 async function analyzeWithLlm(
@@ -401,11 +410,26 @@ export async function fetchConsumerInsights(
   ]);
 
   // 스니펫 수집 (최대 300건 → LLM 분석은 150건)
-  const allItems = [...blogItems, ...newsItems, ...cafeItems];
-  const snippets = allItems
-    .map((item) => `${stripHtml(item.title)} — ${stripHtml(item.description)}`)
-    .filter((s) => s.length > 20)
-    .slice(0, 300);
+  const taggedItems = [
+    ...blogItems.map(i => ({ ...i, type: "blog" as const })),
+    ...newsItems.map(i => ({ ...i, type: "news" as const })),
+    ...cafeItems.map(i => ({ ...i, type: "cafe" as const })),
+  ];
+  const allItems = taggedItems.filter(item => {
+    const s = `${stripHtml(item.title)} — ${stripHtml(item.description)}`;
+    return s.length > 20;
+  }).slice(0, 300);
+
+  const snippets = allItems.map(item => `${stripHtml(item.title)} — ${stripHtml(item.description)}`);
+
+  // 출처 목록 (링크 포함, 최대 300건 전체 보존)
+  const sourceItems: SourceItem[] = allItems.map(item => ({
+    title: stripHtml(item.title),
+    link: item.link || "",
+    date: item.postdate || item.pubDate || "",
+    type: item.type,
+    snippet: stripHtml(item.description).slice(0, 120),
+  }));
 
   const trendSummary = summarizeTrend(trendRaw);
   const shoppingSummary = summarizeShopping(shoppingRaw);
@@ -432,6 +456,7 @@ export async function fetchConsumerInsights(
       podBold: Array.isArray(llmResult.podBold) ? llmResult.podBold : [],
       conclusion: llmResult.conclusion || "네이버 실시간 데이터 기반 분석 완료",
       conclusionBold: Array.isArray(llmResult.conclusionBold) ? llmResult.conclusionBold : [],
+      sourceItems,
     };
   }
 
@@ -450,6 +475,7 @@ export async function fetchConsumerInsights(
     podBold: [trendSummary.topKeyword],
     conclusion: `${conditionLabel} 소비자 관심도 ${trendSummary.trend === "up" ? "상승" : trendSummary.trend === "down" ? "하락" : "유지"} 추세`,
     conclusionBold: [conditionLabel],
+    sourceItems,
   };
 }
 
