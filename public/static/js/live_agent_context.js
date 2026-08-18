@@ -38,17 +38,36 @@
     "reviews", "concept_pod", "conclusion",
   ];
 
+  // ── 스텝별 완료 상태 캐시 ──────────────────────────────────────────────────
+  // step 탭을 오갈 때 이미 done/streaming 상태인 스텝은 재시작하지 않고
+  // 캐싱된 turns + revealed 를 그대로 복원한다.
+  // 구조: Map<stepKey, { turns, status, revealed }>
+  //   stepKey = `${step}:${runId}`  (runId가 올라가면 강제 재시작)
+  // ※ 모듈 스코프 일반 변수 — 세션 전체 수명 동안 유지 (useRef는 컴포넌트 내부 전용)
+  const _stepCache = new Map();
+
   function AgentStreamProvider({ step, children }) {
     const endpoint = buildStepEndpoint(step);
     const isLive = !!endpoint;
 
-    const [turns, setTurns] = useState([]);
-    const [status, setStatus] = useState("idle"); // idle | connecting | streaming | done | error
-    const [revealed, setRevealed] = useState(() => new Set());
-    const [runId, setRunId] = useState(0);
+    // runId per-step: 각 step마다 독립된 재시작 카운터를 유지
+    const [runIds, setRunIds] = useState({});          // { [step]: number }
+    const runId = runIds[step] ?? 0;
+
+    // 현재 step+runId 조합의 캐시 키
+    const cacheKey = `${step}:${runId}`;
+
+    const [turns, setTurns]       = useState([]);
+    const [status, setStatus]     = useState("idle");
+    const [revealed, setRevealed] = useState(new Set());
+
     const esRef = useRef(null);
 
+    // step 또는 runId 변경 시: 캐시 확인 → 있으면 복원만, 없으면 SSE 시작
     useEffect(() => {
+      // 현재 열려있던 SSE 먼저 닫기
+      if (esRef.current) { esRef.current.close(); esRef.current = null; }
+
       if (!isLive) {
         setTurns([]);
         setRevealed(new Set());
@@ -56,9 +75,28 @@
         return;
       }
 
+      // ── 캐시 히트: 이미 완료된 스텝 → 복원만 하고 SSE 열지 않음 ──
+      const cached = _stepCache.get(cacheKey);
+      if (cached && (cached.status === "done" || cached.status === "streaming")) {
+        setTurns(cached.turns);
+        setRevealed(cached.revealed);
+        setStatus(cached.status);
+        return;
+      }
+
+      // ── 캐시 미스: 새 SSE 스트림 시작 ──
       setTurns([]);
       setRevealed(new Set());
       setStatus("connecting");
+
+      // 로컬 변수로 진행 중인 상태를 추적 (클로저 캡처용)
+      let localTurns    = [];
+      let localRevealed = new Set();
+      let localStatus   = "connecting";
+
+      const save = (t, r, s) => {
+        _stepCache.set(cacheKey, { turns: t, revealed: r, status: s });
+      };
 
       const es = new EventSource(endpoint);
       esRef.current = es;
@@ -66,46 +104,50 @@
       es.addEventListener("turn", (e) => {
         let data;
         try { data = JSON.parse(e.data); } catch (_) { return; }
+        localTurns = [...localTurns, data];
+        localStatus = "streaming";
         setStatus("streaming");
-        setTurns((prev) => [...prev, data]);
+        setTurns(localTurns);
         if (data.revealsSection) {
           const ids = Array.isArray(data.revealsSection) ? data.revealsSection : [data.revealsSection];
-          setRevealed((prev) => {
-            const next = new Set(prev);
-            ids.forEach((id) => next.add(id));
-            return next;
-          });
+          ids.forEach((id) => localRevealed.add(id));
+          setRevealed(new Set(localRevealed));
         }
+        save(localTurns, new Set(localRevealed), localStatus);
       });
 
       es.addEventListener("done", () => {
-        // done 수신 시 아직 reveal 안 된 섹션 전부 공개 (타임아웃으로 일부 턴이 생략돼도 내용은 보여야 함)
-        setRevealed((prev) => {
-          const next = new Set(prev);
-          ALL_STEP1_SECTION_IDS.forEach((id) => next.add(id));
-          return next;
-        });
+        ALL_STEP1_SECTION_IDS.forEach((id) => localRevealed.add(id));
+        localStatus = "done";
+        setRevealed(new Set(localRevealed));
         setStatus("done");
+        save(localTurns, new Set(localRevealed), "done");
         es.close();
       });
 
       es.onerror = () => {
-        // "done" 이벤트 수신 후 서버 연결 종료 시에도 onerror가 불림 → done 유지
-        // "streaming" 상태 (데이터를 이미 받는 중) 에서 끊기면 완료로 간주 (일부 환경에서 정상 종료 패턴)
-        setRevealed((prev) => {
-          const next = new Set(prev);
-          ALL_STEP1_SECTION_IDS.forEach((id) => next.add(id));
-          return next;
-        });
-        setStatus((prev) => (prev === "done" || prev === "streaming" ? "done" : "error"));
+        ALL_STEP1_SECTION_IDS.forEach((id) => localRevealed.add(id));
+        const nextStatus = (localStatus === "done" || localStatus === "streaming") ? "done" : "error";
+        localStatus = nextStatus;
+        setRevealed(new Set(localRevealed));
+        setStatus(nextStatus);
+        save(localTurns, new Set(localRevealed), nextStatus);
         es.close();
       };
 
-      return () => es.close();
+      return () => { es.close(); esRef.current = null; };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [step, endpoint, runId]);
+    }, [step, cacheKey]);   // cacheKey = `${step}:${runId}` — runId 증가 시 재시작
 
-    const restart = useCallback(() => setRunId((r) => r + 1), []);
+    // restart: 현재 step의 runId만 +1 → 강제 재시작
+    // 이전 캐시도 삭제해야 새 SSE가 열린다
+    const restart = useCallback(() => {
+      setRunIds((prev) => {
+        const newRunId = (prev[step] ?? 0) + 1;
+        _stepCache.delete(`${step}:${newRunId - 1}`); // 이전 캐시 삭제 (선택적 — 새 키라서 히트 안 됨)
+        return { ...prev, [step]: newRunId };
+      });
+    }, [step]);
 
     const value = { step, isLive, turns, status, revealed, restart };
     return <AgentStreamContext.Provider value={value}>{children}</AgentStreamContext.Provider>;
