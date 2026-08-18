@@ -8,7 +8,7 @@ import { STEP3_INTRO, STEP3_FACTS, STEP3_TURN_PLAN } from "./step3_plan";
 import { STEP4_INTRO, STEP4_FACTS, STEP4_TURN_PLAN } from "./step4_plan";
 import { getBriefRecommendation } from "./brief_recommend";
 import { generateProductDataset, type ConfirmedBrief, type DatasetEnv } from "./dataset_generate";
-import { createIngredientPriceRoute } from "./ingredient_price";
+import { createIngredientPriceRoute, createNutritionSearchRoute } from "./ingredient_price";
 import type { LlmEnv } from "./llm";
 import type { NaverEnv } from "./consumer_insights";
 
@@ -19,6 +19,9 @@ const app = new Hono<{ Bindings: LlmEnv & { AGRO_API_KEY?: string } & Partial<Na
 
 // 농산물 가격 API 라우트 등록
 app.route("/", createIngredientPriceRoute());
+
+// 영양성분 검색 API 등록 (공공데이터 API 우선 → 로컬 DB fallback)
+app.route("/", createNutritionSearchRoute());
 
 app.route("/", createDiscussionRoute("/api/agents/step1/stream", STEP1_INTRO, STEP1_FACTS, STEP1_TURN_PLAN, {
   datasetKeys: ["product", "market", "competitors", "reviews", "concept"],

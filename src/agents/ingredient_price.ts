@@ -3,8 +3,13 @@
 //   필드: exmn_ymd(날짜), exmn_dd_cnvs_prc(1kg환산가격), exmn_dd_prc(단위원가)
 // API 2: https://apis.data.go.kr/B552845/perDay/price  (일별 도·소매 가격정보) ← fallback
 //   필드: saleDate(날짜), dpr1(소매단가), dpr2(중도매단가), unit, unit_sz
+//
+// 영양성분 조회 API: /api/nutrition-search
+//   - 공공데이터포털 식품영양성분DB API 우선 시도 (FOOD_API_KEY 환경변수)
+//   - API 실패·키 없음 → 번들된 nutrition_db.json (농촌진흥청 1,858건) fallback
 
 import { Hono } from "hono";
+import NUTRITION_DB_RAW from "../../public/static/data/nutrition_db.json";
 
 // 품목명 → 품목코드 매핑
 const ITEM_CODE_MAP: Record<string, string[]> = {
@@ -270,6 +275,140 @@ export function createIngredientPriceRoute() {
    */
   app.get("/api/ingredient-price/items", (c) => {
     return c.json({ items: Object.keys(ITEM_CODE_MAP) });
+  });
+
+  return app;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 영양성분 검색 API
+// GET /api/nutrition-search?keyword=브로콜리&limit=10
+//   1순위: 공공데이터포털 식품영양성분DB API (FOOD_API_KEY 환경변수)
+//   2순위: 번들된 nutrition_db.json (농촌진흥청 1,858건 fallback)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// 로컬 DB 타입
+interface NutritionEntry {
+  code: string; name: string; baseName: string;
+  category: string; sub: string; state: string; basis: string;
+  kcal: number|null; protein: number|null; fat: number|null;
+  carb: number|null; sugar: number|null; fiber: number|null;
+  na: number|null; ca: number|null; fe: number|null;
+  vitA: number|null; vitC: number|null; vitD: number|null;
+}
+
+const NUTRITION_DB = NUTRITION_DB_RAW as NutritionEntry[];
+
+// 공공데이터포털 식품영양성분DB API 시도
+// https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo01/getFoodNtrCpntDbInq01
+async function fetchFoodApiNutrition(keyword: string, apiKey: string, limit: number): Promise<NutritionEntry[] | null> {
+  try {
+    const params = new URLSearchParams({
+      serviceKey: apiKey,
+      pageNo: "1",
+      numOfRows: String(limit),
+      type: "json",
+      FOOD_NM_KR: keyword,
+    });
+    const res = await fetch(
+      `https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo01/getFoodNtrCpntDbInq01?${params}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    const items: any[] = data?.body?.items ?? data?.response?.body?.items?.item ?? [];
+    if (!Array.isArray(items) || !items.length) return null;
+
+    return items.map((it: any) => ({
+      code:     String(it.FOOD_CD ?? ""),
+      name:     String(it.FOOD_NM_KR ?? ""),
+      baseName: String(it.FOOD_NM_KR ?? "").split("_")[0],
+      category: String(it.DB_GRP_NM ?? ""),
+      sub:      String(it.FOOD_OR_CD ?? ""),
+      state:    "",
+      basis:    "100g",
+      kcal:    parseFloat(it.AMT_NUM1)  || null,
+      protein: parseFloat(it.AMT_NUM3)  || null,
+      fat:     parseFloat(it.AMT_NUM4)  || null,
+      carb:    parseFloat(it.AMT_NUM7)  || null,
+      sugar:   parseFloat(it.AMT_NUM8)  || null,
+      fiber:   parseFloat(it.AMT_NUM9)  || null,
+      na:      parseFloat(it.AMT_NUM16) || null,
+      ca:      parseFloat(it.AMT_NUM13) || null,
+      fe:      parseFloat(it.AMT_NUM14) || null,
+      vitA:    parseFloat(it.AMT_NUM20) || null,
+      vitC:    parseFloat(it.AMT_NUM24) || null,
+      vitD:    parseFloat(it.AMT_NUM21) || null,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+// 로컬 DB에서 키워드 검색 (기본명 우선 → 전체 식품명)
+function searchLocalNutrition(keyword: string, limit: number): NutritionEntry[] {
+  const kw = keyword.replace(/\s/g, "").toLowerCase();
+  // 1차: baseName 포함
+  const base = NUTRITION_DB.filter(e =>
+    e.baseName.replace(/\s/g, "").toLowerCase().includes(kw)
+  );
+  // 2차: 전체 name 포함 (중복 제거)
+  const full = NUTRITION_DB.filter(e =>
+    !base.includes(e) && e.name.replace(/\s/g, "").toLowerCase().includes(kw)
+  );
+  return [...base, ...full].slice(0, limit);
+}
+
+export function createNutritionSearchRoute() {
+  const app = new Hono<{ Bindings: { FOOD_API_KEY?: string } }>();
+
+  /**
+   * GET /api/nutrition-search
+   * ?keyword=브로콜리&limit=10
+   * response: { ok, keyword, source:"api"|"local", total, items:[NutritionEntry] }
+   */
+  app.get("/api/nutrition-search", async (c) => {
+    const keyword = (c.req.query("keyword") ?? "").trim();
+    const limit   = Math.min(parseInt(c.req.query("limit") ?? "10", 10) || 10, 50);
+
+    if (!keyword)
+      return c.json({ ok: false, error: "keyword 파라미터가 필요합니다" }, 400);
+
+    const apiKey = (c.env as any)?.FOOD_API_KEY ?? "";
+    let items: NutritionEntry[] | null = null;
+    let source: "api" | "local" = "local";
+
+    // 1순위: 공공데이터포털 API
+    if (apiKey) {
+      items = await fetchFoodApiNutrition(keyword, apiKey, limit);
+      if (items && items.length) source = "api";
+    }
+
+    // 2순위: 로컬 DB fallback
+    if (!items || !items.length) {
+      items = searchLocalNutrition(keyword, limit);
+      source = "local";
+    }
+
+    return c.json({
+      ok: true,
+      keyword,
+      source,
+      sourceNote: source === "api"
+        ? "공공데이터포털 식품영양성분DB (식약처)"
+        : "농촌진흥청 국가표준식품성분표 (번들 DB, 1,858건)",
+      total: items.length,
+      items,
+    });
+  });
+
+  /**
+   * GET /api/nutrition-search/categories
+   * 로컬 DB 대분류 목록 반환
+   */
+  app.get("/api/nutrition-search/categories", (c) => {
+    const cats = [...new Set(NUTRITION_DB.map(e => e.category))].sort();
+    return c.json({ categories: cats, totalItems: NUTRITION_DB.length });
   });
 
   return app;
