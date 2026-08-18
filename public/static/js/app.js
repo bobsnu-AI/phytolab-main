@@ -35,6 +35,17 @@
               <button className="brief-back-btn" onClick={onBackToBrief}>
                 <span className="mono">← BRIEF</span>
               </button>
+              <button className="brief-regen-btn" title="데이터 재생성 (브리프 유지, AI 다시 생성)"
+                onClick={() => {
+                  localStorage.removeItem("phytolab-generated-dataset");
+                  onBackToBrief();
+                  setTimeout(() => {
+                    const launchBtn = document.querySelector(".brief-launch-btn, [data-launch]");
+                    if (launchBtn) launchBtn.click();
+                  }, 100);
+                }}>
+                <span className="mono">↺ 재생성</span>
+              </button>
               <span className="workflow-brief-eyebrow mono">CURRENT BRIEF</span>
               <span className="workflow-brief-summary">{briefSummary}</span>
               {window.PHYTO_DATA?.product?.category && (
@@ -115,6 +126,7 @@
 
     const handleBackToBrief = () => {
       localStorage.removeItem("phytolab-launched");
+      localStorage.removeItem("phytolab-generated-dataset");
       setScreen("brief");
     };
 
