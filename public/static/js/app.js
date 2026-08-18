@@ -68,22 +68,23 @@
               {step === 3 && <window.Step3Formula />}
               {step === 4 && <window.Step4Cost />}
             </div>
-            {chatOpen && (
-              <window.MultiAgentReasoning
-                step={step}
-                speed="normal"
-                onActiveAgentsChange={setActiveAgents}
-              />
-            )}
-            <button
-              type="button"
-              className="chat-toggle-tab"
-              style={{ right: chatOpen ? "340px" : "0" }}
-              onClick={() => setChatOpen(v => !v)}
-              title={chatOpen ? "대화 패널 닫기" : "대화 패널 열기"}
-            >
-              {chatOpen ? "›" : "‹"}
-            </button>
+            <div className={`chat-panel-wrap ${chatOpen ? "open" : "closed"}`}>
+              <button
+                type="button"
+                className="chat-toggle-tab"
+                onClick={() => setChatOpen(v => !v)}
+                title={chatOpen ? "대화 패널 닫기" : "대화 패널 열기"}
+              >
+                {chatOpen ? "›" : "‹"}
+              </button>
+              {chatOpen && (
+                <window.MultiAgentReasoning
+                  step={step}
+                  speed="normal"
+                  onActiveAgentsChange={setActiveAgents}
+                />
+              )}
+            </div>
           </div>
         </div>
       </AgentStreamProvider>

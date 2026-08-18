@@ -147,15 +147,34 @@ body::before {
 .workflow-brief-reg-label { color: var(--text-3); font-size: 10px; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 .workspace {
   display: grid;
-  grid-template-columns: 232px 1fr 340px;
+  grid-template-columns: 232px 1fr 320px;
   gap: 0;
   min-height: 0;
   overflow: hidden;
+  width: 100%;
 }
-.workspace.no-agent { grid-template-columns: 232px 1fr; }
+.workspace.no-agent {
+  grid-template-columns: 232px 1fr 0px;
+}
+
+/* ── 채팅 패널 래퍼: 토글 버튼 + 채팅 패널을 하나의 그리드 셀에 묶음 ── */
+.chat-panel-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.chat-panel-wrap.closed {
+  overflow: visible; /* 토글 버튼이 보이도록 */
+}
+
+/* 토글 버튼 — 래퍼의 왼쪽 가장자리에 절대 위치 */
 .chat-toggle-tab {
-  position: fixed;
-  top: calc(50% + 79px);
+  position: absolute;
+  left: -20px;
+  top: 50%;
   transform: translateY(-50%);
   z-index: 50;
   width: 20px;
@@ -169,7 +188,8 @@ body::before {
   display: grid;
   place-items: center;
   font-size: 14px;
-  transition: right 0.2s ease, color 0.15s;
+  transition: color 0.15s;
+  flex-shrink: 0;
 }
 .chat-toggle-tab:hover { color: var(--accent); border-color: var(--accent); }
 .main-col { overflow: auto; padding: 20px 24px 40px; scroll-behavior: smooth; }
@@ -361,6 +381,9 @@ body::before {
   border-left: 1px solid var(--line);
   display: flex; flex-direction: column;
   min-height: 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 .agent-header {
   padding: 16px;
@@ -1485,9 +1508,10 @@ body::before {
 
 /* ===== Responsive fallback ===== */
 @media (max-width: 1000px) {
-  .workspace { grid-template-columns: 60px 1fr; }
-  .workspace.no-agent { grid-template-columns: 60px 1fr; }
+  .workspace { grid-template-columns: 60px 1fr 0px; }
+  .workspace.no-agent { grid-template-columns: 60px 1fr 0px; }
   .agent-panel { display: none; }
+  .chat-panel-wrap { display: none; }
   .stepnav-body, .stepnav-header > *, .stepnav-footer { display: none; }
   .stepnav { padding: 20px 6px; }
 }
