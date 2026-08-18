@@ -761,6 +761,55 @@ body::before {
 .cost-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bg-3); border: 1px solid var(--line); }
 .cost-dot.active { background: var(--accent-2); border-color: var(--accent-2); }
 
+/* ── ingredient-row 모바일: 2행 카드형 ── */
+@media (max-width: 768px) {
+  .ingredient-row {
+    grid-template-columns: 1fr auto auto;
+    grid-template-rows: auto auto;
+    gap: 4px 8px;
+    padding: 10px 0;
+  }
+  /* 행 1: 이름(풀너비) */
+  .ingredient-row .ing-name {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    font-size: 13px;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    white-space: normal;
+    min-width: 0;
+  }
+  /* 행 2 좌: 근거 뱃지 */
+  .ingredient-row .evidence {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+    align-self: center;
+  }
+  /* 행 2 중: 용량 */
+  .ingredient-row .ing-dose {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  /* 행 2 우: 비용 dots */
+  .ingredient-row .ing-cost {
+    grid-column: 3;
+    grid-row: 2;
+    align-self: center;
+  }
+  /* SourceTag는 행 1 우측 끝 */
+  .ingredient-row > [class*="source-tag"],
+  .ingredient-row > span[title] {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+    justify-self: end;
+  }
+}
+
 /* ===== Step 3: Positioning ===== */
 .position-map {
   display: grid;
@@ -1513,6 +1562,118 @@ body::before {
 /* Compare table now has 7 columns including channel */
 .ct-header, .ct-row {
   grid-template-columns: 170px 90px 1fr 140px 100px 90px 110px;
+}
+/* 재구성된 ct-row (brand+chip / key / claim / meta) — 데스크탑 */
+@media (min-width: 769px) {
+  .ct-row {
+    grid-template-columns: 220px 1fr 160px auto;
+  }
+  .ct-row-meta { display: flex; gap: 12px; align-items: center; }
+  .ct-chip-fmt { margin-left: 8px; font-size: 10px; }
+}
+
+/* ── 경쟁사 분석표 모바일: 카드형 ── */
+@media (max-width: 768px) {
+  /* 헤더 숨김 */
+  .ct-header { display: none !important; }
+
+  /* 각 행 → 카드 */
+  .ct-row {
+    display: flex !important;
+    flex-direction: column;
+    gap: 5px;
+    padding: 12px 0 !important;
+    border-bottom: 1px solid var(--line) !important;
+  }
+  /* 브랜드: 첫 줄, chip 인라인 */
+  .ct-brand {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .ct-chip-fmt { font-size: 10px; }
+  /* 핵심 스펙 */
+  .ct-key {
+    font-size: 11px;
+    color: var(--text-2);
+    border-left: 2px solid var(--accent);
+    padding-left: 8px;
+    line-height: 1.5;
+  }
+  /* 클레임 */
+  .ct-claim {
+    font-size: 11px;
+    color: var(--text-3);
+    font-style: italic;
+  }
+  /* 가격·평점·채널: 한 줄 */
+  .ct-row-meta {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 11px;
+  }
+  .ct-row-meta .ct-price { color: var(--text-1); font-weight: 600; }
+  .ct-row-meta .ct-channel { color: var(--text-3); }
+  /* ct-row-us (우리 제품 강조행) */
+  .ct-row-us { padding: 12px 10px !important; }
+}
+
+/* ── 경쟁사 분석표 모바일: 카드형 ── */
+@media (max-width: 768px) {
+  /* 헤더 숨김 */
+  .ct-header { display: none !important; }
+
+  /* 각 행 → 카드 */
+  .ct-row {
+    display: flex !important;
+    flex-direction: column;
+    gap: 5px;
+    padding: 12px 0 !important;
+    border-bottom: 1px solid var(--line) !important;
+  }
+  /* 브랜드: 첫 줄, chip 인라인 */
+  .ct-brand {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .ct-chip-fmt { font-size: 10px; }
+  /* 핵심 스펙 */
+  .ct-key {
+    font-size: 11px;
+    color: var(--text-2);
+    border-left: 2px solid var(--accent);
+    padding-left: 8px;
+    line-height: 1.5;
+  }
+  /* 클레임 */
+  .ct-claim {
+    font-size: 11px;
+    color: var(--text-3);
+    font-style: italic;
+  }
+  /* 가격·평점·채널: 한 줄 */
+  .ct-row-meta {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 11px;
+  }
+  .ct-row-meta .ct-price { color: var(--text-1); font-weight: 600; }
+  .ct-row-meta .ct-channel { color: var(--text-3); }
+  /* ct-row-us (우리 제품 강조행) */
+  .ct-row-us { padding: 12px 10px !important; }
 }
 
 /* ===== Responsive fallback ===== */

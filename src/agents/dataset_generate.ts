@@ -65,14 +65,28 @@ async function callJsonLlm(env: LlmEnv, userPrompt: string, maxTokens: number): 
   }
 }
 
-// ---------- Call A1: product + market (context 포함) ----------
+// ---------- Call A0: market context (prevalence / unmet / policy) — 별도 소형 콜 ----------
+// A1이 토큰 부족으로 context를 잘라낼 때를 대비해 독립 호출로 분리
+async function generatePartA0(env: LlmEnv, brief: ConfirmedBrief) {
+  const prompt = `브리프: ${briefDescription(brief)}
+
+이 브리프 대상의 한국 시장 현황을 아래 JSON 스키마로만 출력하세요.
+- prevalence: 유병률 또는 타깃 인구 규모 (구체적 수치 + 출처 포함, 30자 이내)
+- unmet: 현재 시장에서 해결되지 않은 소비자 핵심 니즈 (40자 이내)
+- policy: 관련 정책·규제 동향 (예: 식약처 고시, 건강기능식품법 개정, 30자 이내)
+
+{"prevalence":"...","unmet":"...","policy":"..."}`;
+  return callJsonLlm(env, prompt, 200);
+}
+
+// ---------- Call A1: product + market (context 없는 간소화 버전) ----------
 async function generatePartA1(env: LlmEnv, brief: ConfirmedBrief) {
   const prompt = `브리프: ${briefDescription(brief)}
 
 아래 스키마를 실제 값으로 채워 JSON 하나만 출력하세요.
 
-{"product":{"codename":"영문코드-1","tagline":"슬로건","target":"타깃","format":"제형+용량","category":"카테고리","subcategory":"세부","regClass":"고시번호","targetPrice":45000,"targetEvidenceStrength":8.2,"positioningSpec":"핵심스펙","positioningClaim":"클레임","positioningRating":4.3,"positioningChannel":"채널"},"market":{"headerTitle":"시장제목","headerDesc":"설명","domestic":{"size":3500,"unit":"억원","cagr":12,"year":2024,"cagrNote":"전망"},"global":{"size":15,"unit":"십억USD","cagr":8,"year":2025},"segments":[{"label":"S1","share":30,"growth":18,"hot":true},{"label":"S2","share":25,"growth":12,"hot":false},{"label":"S3","share":20,"growth":10,"hot":false},{"label":"S4","share":15,"growth":8,"hot":false},{"label":"S5","share":10,"growth":6,"hot":false}],"channels":[{"name":"C1","share":40,"cac":"낮음"},{"name":"C2","share":30,"cac":"중간"},{"name":"C3","share":20,"cac":"높음"},{"name":"C4","share":10,"cac":"중간"}],"context":{"prevalence":"유병률 수치","unmet":"미충족 니즈","policy":"정책 동향"}}}`;
-  return callJsonLlm(env, prompt, 900);
+{"product":{"codename":"영문코드-1","tagline":"슬로건","target":"타깃","format":"제형+용량","category":"카테고리","subcategory":"세부","regClass":"고시번호","targetPrice":45000,"targetEvidenceStrength":8.2,"positioningSpec":"핵심스펙","positioningClaim":"클레임","positioningRating":4.3,"positioningChannel":"채널"},"market":{"headerTitle":"시장제목","headerDesc":"설명","domestic":{"size":3500,"unit":"억원","cagr":12,"year":2024,"cagrNote":"전망"},"global":{"size":15,"unit":"십억USD","cagr":8,"year":2025},"segments":[{"label":"S1","share":30,"growth":18,"hot":true},{"label":"S2","share":25,"growth":12,"hot":false},{"label":"S3","share":20,"growth":10,"hot":false},{"label":"S4","share":15,"growth":8,"hot":false},{"label":"S5","share":10,"growth":6,"hot":false}],"channels":[{"name":"C1","share":40,"cac":"낮음"},{"name":"C2","share":30,"cac":"중간"},{"name":"C3","share":20,"cac":"높음"},{"name":"C4","share":10,"cac":"중간"}]}}`;
+  return callJsonLlm(env, prompt, 700);
 }
 
 // ---------- Call A2: competitors + reviews (700t) ----------
@@ -187,7 +201,8 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
       : null;
 
   const a1Err: string[] = [];
-  const [a1, a2, a3, b1, b2, c, naverInsights] = await Promise.all([
+  const [a0, a1, a2, a3, b1, b2, c, naverInsights] = await Promise.all([
+    generatePartA0(env, brief).catch((e) => { a1Err.push(`A0:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartA1(env, brief).catch((e) => { a1Err.push(`A1:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartA2(env, brief).catch((e) => { a1Err.push(`A2:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartA3(env, brief).catch((e) => { a1Err.push(`A3:${e?.message?.slice(0,100)}`); return {}; }),
@@ -238,10 +253,12 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
     market: {
       ...FALLBACK_MARKET,
       ...a.market,
-      // context는 명시적으로 병합 (nested 객체는 spread로 안 덮임)
+      // context: A0(별도 소형 콜) 우선 → A1 포함값 → FALLBACK 순으로 병합
+      // A0가 {prevalence, unmet, policy} 직접 반환하므로 spread로 덮음
       context: {
         ...FALLBACK_MARKET.context,
         ...(a.market?.context ?? {}),
+        ...(a0 as any),   // A0 결과가 {prevalence,unmet,policy} 형태
       },
     },
     competitors: Array.isArray(a.competitors) && a.competitors.length ? a.competitors : FALLBACK_COMPETITORS,
@@ -286,7 +303,7 @@ const FALLBACK_MARKET = {
   global: { size: 10, unit: "십억USD", cagr: 6, year: 2025 },
   segments: [{ label: "세그먼트 A", share: 30, growth: 12, hot: true }, { label: "세그먼트 B", share: 25, growth: 10 }, { label: "세그먼트 C", share: 20, growth: 8 }, { label: "세그먼트 D", share: 15, growth: 15, hot: true }, { label: "세그먼트 E", share: 10, growth: 6 }],
   channels: [{ name: "온라인 D2C", share: 40, cac: "중간" }, { name: "약국·H&B", share: 30, cac: "중간" }, { name: "병원", share: 20, cac: "낮음" }, { name: "마트", share: 10, cac: "높음" }],
-  context: { prevalence: "추정 타깃 인구 규모 미확인", unmet: "AI 생성 실패로 기본값 표시 중", policy: "정책 동향 미확인" },
+  context: { prevalence: "타깃 인구 규모 데이터 로드 중", unmet: "시장 분석 데이터 준비 중", policy: "규제·정책 동향 준비 중" },
 };
 const FALLBACK_COMPETITORS = [1, 2, 3, 4, 5].map((n) => ({ brand: `경쟁사 ${n}`, format: "-", key: "-", price: 35000 + n * 2000, size: "-", claim: "-", rating: 4.2, reviews: 1000 * n, channel: "온라인", evidenceStrength: 5 + n * 0.3 }));
 const FALLBACK_REVIEWS = {

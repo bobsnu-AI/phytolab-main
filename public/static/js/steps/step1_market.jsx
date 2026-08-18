@@ -235,34 +235,37 @@ const Step1Market = () => {
           </div>
           {comps.map((c, i) => (
             <div key={i} className="ct-row">
-              <div className="ct-brand">{c.brand}</div>
-              <div><span className="chip">{c.format}</span></div>
+              <div className="ct-brand">{c.brand}<span className="chip ct-chip-fmt">{c.format}</span></div>
               <div className="ct-key mono">{c.key}</div>
               <div className="ct-claim">{c.claim}</div>
-              <div className="mono ct-price">₩{c.price.toLocaleString()}</div>
-              <div className="ct-rating">
-                <div className="stars">
-                  <div className="stars-fill" style={{width: `${c.rating/5*100}%`}}></div>
-                </div>
-                <span className="mono">{c.rating}</span>
+              <div className="ct-row-meta">
+                <span className="mono ct-price">₩{c.price.toLocaleString()}</span>
+                <span className="ct-rating">
+                  <div className="stars">
+                    <div className="stars-fill" style={{width: `${c.rating/5*100}%`}}></div>
+                  </div>
+                  <span className="mono">{c.rating}</span>
+                </span>
+                <span className="ct-channel">{c.channel}</span>
               </div>
-              <div className="ct-channel">{c.channel}</div>
             </div>
           ))}
           <div className="ct-row ct-row-us">
             <div className="ct-brand">
               <span className="us-mark">◆</span>
               {product.codename} <span className="mono ct-tag">제안</span>
+              <span className="chip chip-primary ct-chip-fmt">{product.format}</span>
             </div>
-            <div><span className="chip chip-primary">{product.format}</span></div>
             <div className="ct-key mono">{product.positioningSpec}</div>
             <div className="ct-claim">{product.positioningClaim}</div>
-            <div className="mono ct-price">₩{ourPrice.toLocaleString()}</div>
-            <div className="ct-rating">
-              <div className="stars"><div className="stars-fill" style={{width: `${product.positioningRating/5*100}%`}}></div></div>
-              <span className="mono">{product.positioningRating}*</span>
+            <div className="ct-row-meta">
+              <span className="mono ct-price">₩{ourPrice.toLocaleString()}</span>
+              <span className="ct-rating">
+                <div className="stars"><div className="stars-fill" style={{width: `${product.positioningRating/5*100}%`}}></div></div>
+                <span className="mono">{product.positioningRating}*</span>
+              </span>
+              <span className="ct-channel">{product.positioningChannel}</span>
             </div>
-            <div className="ct-channel">{product.positioningChannel}</div>
           </div>
         </div>
       </div>
