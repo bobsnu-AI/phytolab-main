@@ -2,7 +2,7 @@
 // API 1: https://apis.data.go.kr/B552845/recent/price  (최근일자 도·소매 가격정보) ← 기본
 //   필드: exmn_ymd(날짜), exmn_dd_cnvs_prc(1kg환산가격), exmn_dd_prc(단위원가)
 // API 2: https://apis.data.go.kr/B552845/perDay/price  (일별 도·소매 가격정보) ← fallback
-//   필드: saleDate(날짜), dpr1(소매단가), dpr2(중도매단가), unit, unit_sz
+//   필드: exmn_ymd(날짜), dpr1(소매단가), dpr2(중도매단가), unit, unit_sz
 //
 // 영양성분 조회 API: /api/nutrition-search
 //   - 공공데이터포털 식품영양성분DB API 우선 시도 (FOOD_API_KEY 환경변수)
@@ -73,8 +73,8 @@ async function fetchPerDay(
       returnType: "json",
       pageNo: "1",
       numOfRows: "500",
-      "cond[saleDate::GTE]": startDate,
-      "cond[saleDate::LTE]": endDate,
+      "cond[exmn_ymd::GTE]": startDate,
+      "cond[exmn_ymd::LTE]": endDate,
       "cond[item_cd::EQ]": code,
     });
     if (seCode) params.set("cond[se_cd::EQ]", seCode);
@@ -90,7 +90,7 @@ async function fetchPerDay(
       const raw: any[] = Array.isArray(ic) ? ic : ic ? [ic] : [];
 
       for (const it of raw) {
-        // perDay 필드: saleDate, se_nm, item_nm, vrty_nm, grd_nm, unit, unit_sz, dpr1(소매), dpr2(중도매)
+        // perDay 필드: exmn_ymd, se_nm, item_nm, vrty_nm, grd_nm, unit, unit_sz, dpr1(소매), dpr2(중도매)
         // 소매가(dpr1) 우선, 없으면 중도매가(dpr2)
         const rawPrice =
           parseFloat(String(it.dpr1 ?? it.dpr2 ?? "0").replace(/,/g, "")) || 0;
@@ -98,7 +98,7 @@ async function fetchPerDay(
         const unitSz = String(it.unit_sz ?? "1").replace(/,/g, "");
         const kgFactor = toKgFactor(unitStr, unitSz);
         results.push({
-          date: String(it.saleDate ?? ""),
+          date: String(it.exmn_ymd ?? ""),
           channelName: String(it.se_nm ?? "소매"),
           itemName: String(it.item_nm ?? ""),
           varietyName: String(it.vrty_nm ?? ""),
@@ -327,18 +327,18 @@ async function fetchFoodApiNutrition(keyword: string, apiKey: string, limit: num
       sub:      String(it.FOOD_OR_CD ?? ""),
       state:    "",
       basis:    "100g",
-      kcal:    parseFloat(it.AMT_NUM1)  || null,
-      protein: parseFloat(it.AMT_NUM3)  || null,
-      fat:     parseFloat(it.AMT_NUM4)  || null,
-      carb:    parseFloat(it.AMT_NUM7)  || null,
-      sugar:   parseFloat(it.AMT_NUM8)  || null,
-      fiber:   parseFloat(it.AMT_NUM9)  || null,
-      na:      parseFloat(it.AMT_NUM16) || null,
-      ca:      parseFloat(it.AMT_NUM13) || null,
-      fe:      parseFloat(it.AMT_NUM14) || null,
-      vitA:    parseFloat(it.AMT_NUM20) || null,
-      vitC:    parseFloat(it.AMT_NUM24) || null,
-      vitD:    parseFloat(it.AMT_NUM21) || null,
+      kcal:    parseFloat(it.AMT_NUM1)  || null,  // 에너지(kcal)
+      protein: parseFloat(it.AMT_NUM3)  || null,  // 단백질(g)
+      fat:     parseFloat(it.AMT_NUM4)  || null,  // 지방(g)
+      carb:    parseFloat(it.AMT_NUM6)  || null,  // 탄수화물(g)
+      sugar:   parseFloat(it.AMT_NUM7)  || null,  // 당류(g)
+      fiber:   parseFloat(it.AMT_NUM8)  || null,  // 식이섬유(g)
+      ca:      parseFloat(it.AMT_NUM9)  || null,  // 칼슘(mg)
+      fe:      parseFloat(it.AMT_NUM10) || null,  // 철(mg)
+      na:      parseFloat(it.AMT_NUM13) || null,  // 나트륨(mg)
+      vitA:    parseFloat(it.AMT_NUM14) || null,  // 비타민A(μg RAE)
+      vitC:    parseFloat(it.AMT_NUM21) || null,  // 비타민C(mg)
+      vitD:    parseFloat(it.AMT_NUM22) || null,  // 비타민D(μg)
     }));
   } catch {
     return null;
