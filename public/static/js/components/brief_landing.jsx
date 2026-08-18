@@ -8,6 +8,13 @@
 
 const { useState, useEffect, useMemo, useRef } = React;
 
+// category → 표준 규제 경로 (서버 brief_recommend.ts의 CATEGORY_DEFAULT_REG와 동기화 유지)
+const CATEGORY_DEFAULT_REG = {
+  fsmp: "fsmp", hfunc: "hfunc-i", senior: "seniorks",
+  personal: "hfunc-i", general: "label", sports: "label",
+  meal: "regular", infant: "fsmp",
+};
+
 const REC_AXES = ["category", "ingredient", "format", "reg", "channel", "strategy"];
 
 // ---------- 유틸: 스코어 계산 ----------
@@ -256,7 +263,18 @@ function BriefPresets({ onApply, current }) {
 function BriefLanding({ onLaunch }) {
   const [sel, setSel] = useState(() => {
     const saved = localStorage.getItem("phytolab-brief");
-    return saved ? JSON.parse(saved) : {};
+    if (!saved) return {};
+    const parsed = JSON.parse(saved);
+    // category와 reg가 불일치하면 reg를 category 기준으로 재정렬
+    // (이전 세션의 잘못된 추천값이 캐시된 채 복원되는 것을 방지)
+    if (parsed.category && parsed.reg) {
+      const correctReg = CATEGORY_DEFAULT_REG[parsed.category];
+      if (correctReg && parsed.reg !== correctReg) {
+        parsed.reg = correctReg;
+        localStorage.setItem("phytolab-brief", JSON.stringify(parsed));
+      }
+    }
+    return parsed;
   });
   const [events, setEvents] = useState([]);
   const [activeAgents, setActiveAgents] = useState([]);
@@ -335,15 +353,19 @@ function BriefLanding({ onLaunch }) {
       });
       if (!res.ok) throw new Error(`status ${res.status}`);
       const data = await res.json();
+      const rec = data.recommendation;
+      // category와 reg 불일치 시 클라이언트에서도 재정렬 (서버 로직과 동기화)
+      const safeReg = CATEGORY_DEFAULT_REG[rec.category] || rec.reg;
+      if (rec.reg !== safeReg) rec.reg = safeReg;
 
       setSel(prev => ({
         ...prev,
-        category: data.recommendation.category,
-        ingredient: data.recommendation.ingredient,
-        format: data.recommendation.format,
-        reg: data.recommendation.reg,
-        channel: data.recommendation.channel,
-        strategy: data.recommendation.strategy,
+        category: rec.category,
+        ingredient: rec.ingredient,
+        format: rec.format,
+        reg: rec.reg,
+        channel: rec.channel,
+        strategy: rec.strategy,
       }));
       setRecState({ status: "done", key, reasons: data.reasons });
 
