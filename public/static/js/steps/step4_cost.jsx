@@ -286,7 +286,13 @@ function IngredientPriceLookup({ onApplyPrice }) {
 ───────────────────────────────────────────────────────── */
 const Step4Cost = () => {
   const fPhyto = PHYTO_DATA.formula;
-  const c = PHYTO_DATA.cost;
+  const FALLBACK_COST = {
+    packaging: { liquidPack: 240, outerBox: 620, shipperBox: 180, label: 120, sterilization: 480 },
+    overhead:  { labor: 780, utility: 340, qa: 320, depreciation: 420, logistics: 380 },
+    target:    { wholesaleMarkup: 1.7, retailMarkup: 2.3, msrp: 39000 },
+  };
+  const rawC = PHYTO_DATA.cost;
+  const c = (rawC?.packaging && rawC?.overhead && rawC?.target) ? rawC : FALLBACK_COST;
   const ctx = window.useFormula ? window.useFormula() : null;
   const Reveal = window.RevealSection || (({ children }) => children);
 
@@ -329,7 +335,7 @@ const Step4Cost = () => {
   const rawPerBox = ctx?.rawPerBox ?? (ingCostPerPack * servingsPerBox / (yieldOverall/100));
   const packPerBox = ctx?.packPerBox ?? (c.packaging.liquidPack * servingsPerBox + c.packaging.outerBox + c.packaging.shipperBox + c.packaging.label + c.packaging.sterilization);
   const ohPerBox = c.overhead.labor + c.overhead.utility + c.overhead.qa + c.overhead.depreciation + c.overhead.logistics;
-  const ohAdjusted = ctx?.ohAdjusted ?? (ohPerBox * (30000 / batchSize) ** 0.15);
+  const ohAdjusted = ctx?.ohAdjusted ?? (ohPerBox * (30000 / Math.max(1, batchSize)) ** 0.15);
   const totalCost = ctx?.totalCost ?? (rawPerBox + packPerBox + ohAdjusted);
   const wholesale = totalCost * c.target.wholesaleMarkup;
   const marginPct = ctx?.marginPct ?? (((msrp - totalCost) / msrp) * 100);

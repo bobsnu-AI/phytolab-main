@@ -26,7 +26,17 @@
     }));
   }
 
-  // PHYTO_DATA.formula에서 현재 상태를 읽어오는 헬퍼
+  // cost 폴백 — PHYTO_DATA.cost 구조가 불완전할 때 방어
+  const FALLBACK_COST = {
+    packaging: { liquidPack: 240, outerBox: 620, shipperBox: 180, label: 120, sterilization: 480 },
+    overhead:  { labor: 780, utility: 340, qa: 320, depreciation: 420, logistics: 380 },
+    target:    { wholesaleMarkup: 1.7, retailMarkup: 2.3, msrp: 39000 },
+  };
+  function safeC() {
+    const c = window.PHYTO_DATA?.cost;
+    if (!c?.packaging || !c?.overhead || !c?.target) return FALLBACK_COST;
+    return c;
+  }
   function readFormulaSnapshot() {
     const f = window.PHYTO_DATA.formula;
     return {
@@ -122,12 +132,13 @@
 
     const ingCostPerPack = ings.reduce((s, x) => s + x.amount * priceFor(x) / (x.yieldPct / 100), 0);
     const rawPerBox = ingCostPerPack * servings / (yieldOverall / 100);
-    const c = window.PHYTO_DATA.cost;
+    const c = safeC();
     const packPerBox = c.packaging.liquidPack * servings + c.packaging.outerBox + c.packaging.shipperBox + c.packaging.label + c.packaging.sterilization;
     const ohPerBox = c.overhead.labor + c.overhead.utility + c.overhead.qa + c.overhead.depreciation + c.overhead.logistics;
-    const ohAdjusted = ohPerBox * (30000 / batchSize) ** 0.15;
+    const safeBatch = batchSize > 0 ? batchSize : 30000;
+    const ohAdjusted = ohPerBox * (30000 / safeBatch) ** 0.15;
     const totalCost = rawPerBox + packPerBox + ohAdjusted;
-    const marginPct = ((msrp - totalCost) / msrp) * 100;
+    const marginPct = msrp > 0 ? ((msrp - totalCost) / msrp) * 100 : 0;
 
     const updateAmount = (id, val) => {
       setIngs(prev => prev.map(x => x.id === id ? { ...x, amount: Math.max(0, val) } : x));
