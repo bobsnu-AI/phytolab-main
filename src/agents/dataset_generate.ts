@@ -42,27 +42,15 @@ function extractJson(text: string): any {
   return JSON.parse(t.slice(start, end + 1));
 }
 
+// CF Pages Worker 30초 제한 안에서 7개 병렬 LLM 콜이 완료되어야 함
+// 첫 시도 10s + 재시도 없음 = 최대 10s per call, 병렬이므로 전체 ≈ 10~14s 이내
 async function callJsonLlm(env: LlmEnv, userPrompt: string, maxTokens: number): Promise<any> {
   const messages = [
     { role: "system" as const, content: SYSTEM_PROMPT },
     { role: "user" as const, content: userPrompt },
   ];
-  try {
-    const raw = await callAgentLlm(env, messages, { maxTokens, timeoutMs: 15000 });
-    return extractJson(raw);
-  } catch (err) {
-    // 1회 재시도 — 재시도는 8초로 단축해 CF Pages 30초 예산 초과 방지
-    try {
-      const raw = await callAgentLlm(
-        env,
-        [...messages, { role: "user" as const, content: "오직 JSON만 출력하세요." }],
-        { maxTokens, timeoutMs: 8000 }
-      );
-      return extractJson(raw);
-    } catch {
-      throw err;
-    }
-  }
+  const raw = await callAgentLlm(env, messages, { maxTokens, timeoutMs: 10000 });
+  return extractJson(raw);
 }
 
 // ---------- Call A0: market context (prevalence / unmet / policy) — 별도 소형 콜 ----------
@@ -95,17 +83,17 @@ async function generatePartA2(env: LlmEnv, brief: ConfirmedBrief) {
 
 위 브리프와 동일 카테고리·타깃·건강이슈를 겨냥하는 한국 실제 경쟁제품 5개를 조사해 아래 JSON을 완성하세요.
 규칙:
-- brand: 실제 브랜드명 또는 제품라인명 (한국어, 20자 이내, "경쟁사N" 금지)
-- format: 제형 (예: 액상팩·파우더·젤리·캡슐)
-- key: 핵심 성분·함량 1줄 (예: "단백질 20g·류신 2.4g")
+- brand: 실제 브랜드명 (한국어, 20자 이내, "경쟁사N" 금지, 반드시 브리프 타깃에 맞는 제품)
+- format: 제형 (액상팩·파우더·젤리·캡슐 등)
+- key: 핵심 성분·함량 1줄 (30자 이내)
 - claim: 실제 마케팅 클레임 (한국어, 30자 이내)
 - price: 24팩 박스 기준 소비자가 (원, 정수)
 - size: 1팩 용량 (예: "200ml×24")
-- channel: 주 유통채널 (병원·약국·온라인·홈쇼핑 등)
-- evidenceStrength: 임상근거 강도 1-10 (정수 또는 소수 1자리)
-- reviews: 긍정·부정 소비자 리뷰 키워드 각 8개, t=한국어 키워드(10자 이내), w=가중치(정수)
+- channel: 주 유통채널
+- evidenceStrength: 임상근거 강도 1-10
+- reviews: 긍정·부정 키워드 각 8개, t=키워드(10자 이내), w=가중치(정수)
 
-{"competitors":[{"brand":"메디웰 뉴트리케어","format":"액상팩","key":"단백질 18g·오메가3 1g","claim":"근감소 예방 완전영양식","price":42000,"size":"200ml×24","rating":4.2,"reviews":1200,"channel":"병원·요양시설","evidenceStrength":6.5},{"brand":"뉴케어 당뇨식","format":"액상팩","key":"이소말툴로스 15g·식이섬유 5g","claim":"저GI 혈당관리 FSMP","price":38000,"size":"200ml×24","rating":4.0,"reviews":2800,"channel":"병원·온라인","evidenceStrength":7.1},{"brand":"그린비아 TF","format":"액상팩","key":"칼로리 200kcal·단백질 20g","claim":"튜브피딩·경관영양 전용","price":55000,"size":"200ml×24","rating":4.4,"reviews":950,"channel":"병원","evidenceStrength":7.8},{"brand":"노바소스 원","format":"파우더","key":"MCT 5g·분지사슬아미노산 3g","claim":"근력·활력 시니어 영양","price":47000,"size":"45g×24","rating":3.9,"reviews":420,"channel":"약국·온라인","evidenceStrength":5.5},{"brand":"엔슈어 라이프","format":"액상팩","key":"단백질 16g·비타민D 15μg","claim":"뼈·근육 고령자 완전영양","price":52000,"size":"220ml×24","rating":4.3,"reviews":3200,"channel":"약국·온라인","evidenceStrength":7.2}],"reviews":{"positive":[{"t":"맛이 좋아요","w":40},{"t":"포만감","w":35},{"t":"소화 잘됨","w":30},{"t":"혈당 안정","w":28},{"t":"편리한 포장","w":25},{"t":"근력 향상","w":22},{"t":"의사 추천","w":20},{"t":"냄새 없음","w":18}],"negative":[{"t":"가격 비쌈","w":38},{"t":"단맛 강함","w":32},{"t":"양 부족","w":28},{"t":"점도 걸쭉","w":25},{"t":"유통기한 짧음","w":22},{"t":"향 인공적","w":20},{"t":"거품 많음","w":18},{"t":"성분 복잡","w":15}]}}`;
+{"competitors":[{"brand":"브랜드명","format":"제형","key":"성분·함량","claim":"클레임","price":40000,"size":"용량","rating":4.2,"reviews":1000,"channel":"채널","evidenceStrength":6.5},{"brand":"브랜드명2","format":"제형","key":"성분·함량","claim":"클레임","price":38000,"size":"용량","rating":4.0,"reviews":2000,"channel":"채널","evidenceStrength":7.0},{"brand":"브랜드명3","format":"제형","key":"성분·함량","claim":"클레임","price":45000,"size":"용량","rating":4.1,"reviews":800,"channel":"채널","evidenceStrength":6.8},{"brand":"브랜드명4","format":"제형","key":"성분·함량","claim":"클레임","price":35000,"size":"용량","rating":3.9,"reviews":500,"channel":"채널","evidenceStrength":5.5},{"brand":"브랜드명5","format":"제형","key":"성분·함량","claim":"클레임","price":50000,"size":"용량","rating":4.3,"reviews":1500,"channel":"채널","evidenceStrength":7.2}],"reviews":{"positive":[{"t":"키워드","w":40},{"t":"키워드","w":35},{"t":"키워드","w":30},{"t":"키워드","w":28},{"t":"키워드","w":25},{"t":"키워드","w":22},{"t":"키워드","w":20},{"t":"키워드","w":18}],"negative":[{"t":"키워드","w":38},{"t":"키워드","w":32},{"t":"키워드","w":28},{"t":"키워드","w":25},{"t":"키워드","w":22},{"t":"키워드","w":20},{"t":"키워드","w":18},{"t":"키워드","w":15}]}}`;
   return callJsonLlm(env, prompt, 700);
 }
 

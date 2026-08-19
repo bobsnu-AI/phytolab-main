@@ -472,10 +472,12 @@ function BriefLanding({ onLaunch }) {
       });
       if (!res.ok) throw new Error(`status ${res.status}`);
       const dataset = await res.json();
-      // FALLBACK 데이터(AI 생성 실패)인 경우 localStorage에 저장하지 않음
+      // FALLBACK 감지: target.ingredients[0] 이름 + market.headerDesc + context.unmet
       const isValidDataset = Array.isArray(dataset?.target?.ingredients)
         && dataset.target.ingredients.length > 0
-        && dataset.target.ingredients[0]?.name !== "기본 원료";
+        && dataset.target.ingredients[0]?.name !== "기본 원료"
+        && !dataset.market?.headerDesc?.includes("기본값")
+        && !dataset.market?.context?.unmet?.includes("준비 중");
       Object.assign(window.PHYTO_DATA, dataset);
       if (isValidDataset) {
         localStorage.setItem("phytolab-generated-dataset", JSON.stringify(dataset));
