@@ -2,10 +2,9 @@
 // STEP1에서 검증한 하이브리드 패턴(FACTS 고정 + TURN_PLAN 고정 + msg만 LLM 실시간 생성)을
 // Step2~5에 재사용하기 위해 일반화했습니다.
 //
-// 브리프별 동적 데이터셋 지원: SSE 요청에 ?dataset=<encodeURIComponent(JSON)> 쿼리가 실려오면
-// 정적 FACTS/INTRO 대신 그 데이터셋 기반으로 생성한 FACTS/INTRO를 사용합니다(TURN_PLAN 구조는 동일하게 유지 —
-// 발언 순서·발언자·reveal 섹션은 고정, 실제로 뭐라 말할지만 매 세션 LLM이 새 FACTS 기준으로 생성).
-// dataset 쿼리가 없으면(예: 기존 GLUCARE-M 프리셋 경로) 기존과 동일하게 정적 상수를 그대로 사용합니다.
+// 브리프별 동적 데이터셋 지원: SSE POST body에 { dataset: {...} } JSON을 실어 보내면
+// 정적 FACTS/INTRO 대신 그 데이터셋 기반으로 생성한 FACTS/INTRO를 사용합니다.
+// (이전: GET ?dataset= 쿼리스트링 → URL 8KB 초과로 CF Workers 차단 → POST body로 교체)
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { AGENT_PERSONAS, type AgentId } from "./personas";
@@ -72,6 +71,109 @@ function buildDynamicGuidance(guidance: string, dataset: any): string {
   return `[중요: 아래 FACTS의 실제 제품(${codename}, ${tagline})과 해당 건강이슈·시장 데이터를 기준으로 발언할 것. 당뇨·GLUCARE-M 등 다른 제품 컨텍스트는 무시할 것.]\n${dg}`;
 }
 
+// SSE 스트림 본체 — GET/POST 핸들러 공통 로직
+async function runDiscussionStream(
+  stream: any,
+  env: Bindings,
+  dataset: any,
+  staticIntro: string,
+  staticFacts: string,
+  turnPlan: DiscussionTurn[],
+  dynamic: DynamicOpts | undefined
+) {
+  const productIntro = dataset && dynamic ? dynamic.buildIntro(dataset) : staticIntro;
+  const facts = dataset && dynamic ? buildFactsFromDataset(dataset, dynamic.datasetKeys) : staticFacts;
+
+  const transcript: { agent: AgentId; msg: string }[] = [];
+
+  // Cloudflare Workers SSE: 총 응답 시간이 길어지면 연결 끊김 방지용
+  // LLM 1턴 최대 대기 8초, 전체 스트림 최대 90초
+  const STREAM_START = Date.now();
+  const STREAM_LIMIT_MS = 90_000;
+  const LLM_TURN_TIMEOUT_MS = 8_000;
+
+  function buildSystemPrompt(agentId: AgentId): string {
+    const p = AGENT_PERSONAS[agentId];
+    return `당신은 ${p.name}입니다 — ${p.role} 담당 AI Agent (Phytolab.AI Multi-Agent 제품설계팀).
+전문 영역: ${p.expertise}
+성격: ${p.persona}
+말투: ${p.toneNote}
+
+${productIntro}
+당신은 이 논의의 한 턴을 맡았습니다. 아래 FACTS와 이번 턴 지시만 근거로 짧게 발언하세요.
+
+${facts}`;
+  }
+
+  for (const turn of turnPlan) {
+    // 전체 스트림 시간 초과 시 즉시 done 전송 후 종료
+    if (Date.now() - STREAM_START > STREAM_LIMIT_MS) {
+      break;
+    }
+
+    let msg: string;
+    let source: "live" | "fallback" = "live";
+
+    // dataset이 있을 때: guidance를 dataset 기반으로 동적 재작성 (당뇨/GLUCARE-M 고정 키워드 제거)
+    const effectiveGuidance = dataset && dynamic
+      ? buildDynamicGuidance(turn.guidance, dataset)
+      : turn.guidance;
+
+    try {
+      const historyText = transcript.length
+        ? transcript.map((t) => `${AGENT_PERSONAS[t.agent].name}: ${t.msg}`).join("\n")
+        : "(아직 발언 없음 · 이번이 논의의 첫 턴)";
+
+      const messages: ChatMessage[] = [
+        { role: "system", content: buildSystemPrompt(turn.agent) },
+        {
+          role: "user",
+          content: `지금까지의 팀 대화:\n${historyText}\n\n이번 턴 지시: ${effectiveGuidance}\n\n규칙: 정확히 1~2문장(60자 내외/문장). 직전 발언들에서 이미 나온 숫자·문장을 다시 요약하거나 반복하지 말고, 이번 지시에 해당하는 새 정보만 말할 것. 인사말·이모지·따옴표 없이 발언 내용만 출력하세요.`,
+        },
+      ];
+
+      // LLM 호출에 개별 타임아웃 적용 — 느린 경우 fallback으로 즉시 전환
+      const llmResult = await Promise.race([
+        callAgentLlm(env, messages),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error("llm_timeout")), LLM_TURN_TIMEOUT_MS)
+        ),
+      ]);
+      msg = llmResult as string;
+      if (!msg) throw new Error("empty response");
+    } catch (err) {
+      // fallbackMsg도 dataset이 있으면 제품명 치환
+      if (dataset?.product?.codename) {
+        msg = turn.fallbackMsg
+          .replace(/GLUCARE-M/g, dataset.product.codename)
+          .replace(/당뇨환자용/g, dataset.product.subcategory || dataset.product.category || "")
+          .replace(/당뇨환자/g, dataset.product.target || "타깃 수요층");
+      } else {
+        msg = turn.fallbackMsg;
+      }
+      source = "fallback";
+    }
+
+    transcript.push({ agent: turn.agent, msg });
+
+    await stream.writeSSE({
+      event: "turn",
+      data: JSON.stringify({
+        id: turn.id,
+        agent: turn.agent,
+        type: turn.type,
+        tool: turn.tool,
+        to: turn.to,
+        revealsSection: turn.revealsSection,
+        msg,
+        source,
+      }),
+    });
+  }
+
+  await stream.writeSSE({ event: "done", data: "{}" });
+}
+
 /**
  * @param path         SSE 엔드포인트 경로 (예: "/api/agents/step2/stream")
  * @param staticIntro  데이터셋이 없을 때(정적 프리셋 경로) 사용할 도입부 문장
@@ -88,110 +190,27 @@ export function createDiscussionRoute(
 ) {
   const route = new Hono<{ Bindings: Bindings }>();
 
-  function buildSystemPrompt(agentId: AgentId, productIntro: string, facts: string): string {
-    const p = AGENT_PERSONAS[agentId];
-    return `당신은 ${p.name}입니다 — ${p.role} 담당 AI Agent (Phytolab.AI Multi-Agent 제품설계팀).
-전문 영역: ${p.expertise}
-성격: ${p.persona}
-말투: ${p.toneNote}
-
-${productIntro}
-당신은 이 논의의 한 턴을 맡았습니다. 아래 FACTS와 이번 턴 지시만 근거로 짧게 발언하세요.
-
-${facts}`;
-  }
-
-  route.get(path, (c) => {
+  // POST: dataset을 body JSON { dataset: {...} }으로 수신 — URL 크기 제한 우회
+  route.post(path, async (c) => {
     let dataset: any = null;
-    const raw = c.req.query("dataset");
-    if (raw) {
-      try {
-        dataset = JSON.parse(raw);
-      } catch {
-        dataset = null;
-      }
+    try {
+      const body = await c.req.json();
+      dataset = body?.dataset ?? null;
+    } catch {
+      dataset = null;
     }
-    const productIntro = dataset && dynamic ? dynamic.buildIntro(dataset) : staticIntro;
-    const facts = dataset && dynamic ? buildFactsFromDataset(dataset, dynamic.datasetKeys) : staticFacts;
+    return streamSSE(c, (stream) =>
+      runDiscussionStream(stream, c.env, dataset, staticIntro, staticFacts, turnPlan, dynamic)
+    );
+  });
 
-    return streamSSE(c, async (stream) => {
-      const transcript: { agent: AgentId; msg: string }[] = [];
-
-      // Cloudflare Workers SSE: 총 응답 시간이 길어지면 연결 끊김 방지용
-      // LLM 1턴 최대 대기 8초, 전체 스트림 최대 90초
-      const STREAM_START = Date.now();
-      const STREAM_LIMIT_MS = 90_000;
-      const LLM_TURN_TIMEOUT_MS = 8_000;
-
-      for (const turn of turnPlan) {
-        // 전체 스트림 시간 초과 시 즉시 done 전송 후 종료
-        if (Date.now() - STREAM_START > STREAM_LIMIT_MS) {
-          break;
-        }
-
-        let msg: string;
-        let source: "live" | "fallback" = "live";
-
-        // dataset이 있을 때: guidance를 dataset 기반으로 동적 재작성 (당뇨/GLUCARE-M 고정 키워드 제거)
-        const effectiveGuidance = dataset && dynamic
-          ? buildDynamicGuidance(turn.guidance, dataset)
-          : turn.guidance;
-
-        try {
-          const historyText = transcript.length
-            ? transcript.map((t) => `${AGENT_PERSONAS[t.agent].name}: ${t.msg}`).join("\n")
-            : "(아직 발언 없음 · 이번이 논의의 첫 턴)";
-
-          const messages: ChatMessage[] = [
-            { role: "system", content: buildSystemPrompt(turn.agent, productIntro, facts) },
-            {
-              role: "user",
-              content: `지금까지의 팀 대화:\n${historyText}\n\n이번 턴 지시: ${effectiveGuidance}\n\n규칙: 정확히 1~2문장(60자 내외/문장). 직전 발언들에서 이미 나온 숫자·문장을 다시 요약하거나 반복하지 말고, 이번 지시에 해당하는 새 정보만 말할 것. 인사말·이모지·따옴표 없이 발언 내용만 출력하세요.`,
-            },
-          ];
-
-          // LLM 호출에 개별 타임아웃 적용 — 느린 경우 fallback으로 즉시 전환
-          const llmResult = await Promise.race([
-            callAgentLlm(c.env, messages),
-            new Promise<string>((_, reject) =>
-              setTimeout(() => reject(new Error("llm_timeout")), LLM_TURN_TIMEOUT_MS)
-            ),
-          ]);
-          msg = llmResult as string;
-          if (!msg) throw new Error("empty response");
-        } catch (err) {
-          // fallbackMsg도 dataset이 있으면 제품명 치환
-          if (dataset?.product?.codename) {
-            msg = turn.fallbackMsg
-              .replace(/GLUCARE-M/g, dataset.product.codename)
-              .replace(/당뇨환자용/g, dataset.product.subcategory || dataset.product.category || "")
-              .replace(/당뇨환자/g, dataset.product.target || "타깃 수요층");
-          } else {
-            msg = turn.fallbackMsg;
-          }
-          source = "fallback";
-        }
-
-        transcript.push({ agent: turn.agent, msg });
-
-        await stream.writeSSE({
-          event: "turn",
-          data: JSON.stringify({
-            id: turn.id,
-            agent: turn.agent,
-            type: turn.type,
-            tool: turn.tool,
-            to: turn.to,
-            revealsSection: turn.revealsSection,
-            msg,
-            source,
-          }),
-        });
-      }
-
-      await stream.writeSSE({ event: "done", data: "{}" });
-    });
+  // GET: 하위 호환 유지 (데이터셋 없이 정적 FACTS로 실행)
+  route.get(path, (c) => {
+    return streamSSE(c, (stream) =>
+      runDiscussionStream(stream, c.env, null, staticIntro, staticFacts, turnPlan, dynamic)
+    );
   });
 
   return route;
 }
+
