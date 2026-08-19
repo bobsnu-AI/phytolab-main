@@ -891,15 +891,18 @@ body::before {
 }
 
 .compare-table { display: flex; flex-direction: column; }
+/* ct-row: brand+chip / key / claim / meta — 4컬럼 데스크탑 레이아웃 */
 .ct-header, .ct-row {
   display: grid;
-  grid-template-columns: 180px 90px 1fr 160px 100px 100px 80px;
+  grid-template-columns: 220px 1fr 160px auto;
   gap: 10px;
   padding: 10px 0;
   align-items: center;
   font-size: 12px;
   border-bottom: 1px dashed var(--line);
 }
+.ct-row-meta { display: flex; gap: 12px; align-items: center; }
+.ct-chip-fmt { margin-left: 6px; font-size: 10px; }
 .ct-header {
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -1558,71 +1561,6 @@ body::before {
 .role-tag.role-지방 { background: oklch(0.75 0.14 55 / 0.2); color: oklch(0.85 0.14 55); }
 .role-tag.role-미량 { background: oklch(from var(--accent-3) l c h / 0.2); color: var(--accent-3); }
 .role-tag.role-안정 { background: oklch(0.6 0.03 245 / 0.2); color: var(--text-2); }
-
-/* Compare table now has 7 columns including channel */
-.ct-header, .ct-row {
-  grid-template-columns: 170px 90px 1fr 140px 100px 90px 110px;
-}
-/* 재구성된 ct-row (brand+chip / key / claim / meta) — 데스크탑 */
-@media (min-width: 769px) {
-  .ct-row {
-    grid-template-columns: 220px 1fr 160px auto;
-  }
-  .ct-row-meta { display: flex; gap: 12px; align-items: center; }
-  .ct-chip-fmt { margin-left: 8px; font-size: 10px; }
-}
-
-/* ── 경쟁사 분석표 모바일: 카드형 ── */
-@media (max-width: 768px) {
-  /* 헤더 숨김 */
-  .ct-header { display: none !important; }
-
-  /* 각 행 → 카드 */
-  .ct-row {
-    display: flex !important;
-    flex-direction: column;
-    gap: 5px;
-    padding: 12px 0 !important;
-    border-bottom: 1px solid var(--line) !important;
-  }
-  /* 브랜드: 첫 줄, chip 인라인 */
-  .ct-brand {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-1);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-  .ct-chip-fmt { font-size: 10px; }
-  /* 핵심 스펙 */
-  .ct-key {
-    font-size: 11px;
-    color: var(--text-2);
-    border-left: 2px solid var(--accent);
-    padding-left: 8px;
-    line-height: 1.5;
-  }
-  /* 클레임 */
-  .ct-claim {
-    font-size: 11px;
-    color: var(--text-3);
-    font-style: italic;
-  }
-  /* 가격·평점·채널: 한 줄 */
-  .ct-row-meta {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-    font-size: 11px;
-  }
-  .ct-row-meta .ct-price { color: var(--text-1); font-weight: 600; }
-  .ct-row-meta .ct-channel { color: var(--text-3); }
-  /* ct-row-us (우리 제품 강조행) */
-  .ct-row-us { padding: 12px 10px !important; }
-}
 
 /* ── 경쟁사 분석표 모바일: 카드형 ── */
 @media (max-width: 768px) {
