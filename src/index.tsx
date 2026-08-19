@@ -10,6 +10,9 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 app.route('/', agentRoutes)
 
+// favicon: 204 No Content (브라우저 자동 요청 → Worker 404 방지)
+app.get('/favicon.ico', (c) => c.body(null, 204))
+
 app.get('/', (c) => {
   return c.html(`<!doctype html>
 <html lang="ko">
