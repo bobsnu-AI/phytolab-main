@@ -37,7 +37,7 @@ app.get('/', (c) => {
 <!-- ① React production 빌드 (dev 대비 react-dom 1055KB→130KB) -->
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
-<!-- ② Babel standalone: react preset만 로드, presets 명시로 불필요 플러그인 차단 -->
+<!-- ② Babel standalone (react+env preset 내장) -->
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
 
 <!-- ③ 데이터 파일: nutrient_db(289KB)는 defer로 지연 로딩 -->
@@ -50,17 +50,17 @@ app.get('/', (c) => {
 
 <script src="/static/js/react_globals.js?v=20260819a"></script>
 
-<!-- ④ Babel JSX 파일: data-presets로 react만 트랜스파일 (env preset 제외 → 번들 경량화) -->
-<script type="text/babel" data-presets="react" src="/static/js/formula_context.js?v=20260819a"></script>
-<script type="text/babel" data-presets="react" src="/static/js/live_agent_context.js?v=20260819a"></script>
-<script type="text/babel" data-presets="react" src="/static/js/shell_components.js?v=20260819a"></script>
-<script type="text/babel" data-presets="react" src="/static/js/mobile_ui.js?v=20260819a"></script>
-<script type="text/babel" data-presets="react" src="/static/js/steps/step1_market.jsx?v=20260819a"></script>
-<script type="text/babel" data-presets="react" src="/static/js/steps/step2_target.jsx?v=20260819a"></script>
-<script type="text/babel" data-presets="react" src="/static/js/steps/step3_formula.jsx?v=20260819a"></script>
-<script type="text/babel" data-presets="react" src="/static/js/steps/step4_cost.jsx?v=20260819a"></script>
-<script type="text/babel" data-presets="react" src="/static/js/components/brief_landing.jsx?v=20260819a"></script>
-<script type="text/babel" data-presets="react" src="/static/js/app.js?v=20260819a"></script>
+<!-- ④ Babel JSX 파일 -->
+<script type="text/babel" src="/static/js/formula_context.js?v=20260819b"></script>
+<script type="text/babel" src="/static/js/live_agent_context.js?v=20260819b"></script>
+<script type="text/babel" src="/static/js/shell_components.js?v=20260819b"></script>
+<script type="text/babel" src="/static/js/mobile_ui.js?v=20260819b"></script>
+<script type="text/babel" src="/static/js/steps/step1_market.jsx?v=20260819b"></script>
+<script type="text/babel" src="/static/js/steps/step2_target.jsx?v=20260819b"></script>
+<script type="text/babel" src="/static/js/steps/step3_formula.jsx?v=20260819b"></script>
+<script type="text/babel" src="/static/js/steps/step4_cost.jsx?v=20260819b"></script>
+<script type="text/babel" src="/static/js/components/brief_landing.jsx?v=20260819b"></script>
+<script type="text/babel" src="/static/js/app.js?v=20260819b"></script>
 
 <style>
 .workflow-brief-strip {
