@@ -1,37 +1,43 @@
 // STAGE 00 · Brief 추천 엔진
-// 설계 원칙(하이브리드 패턴 — Step1~5 라이브 논의와 동일한 철학):
-//  - "무엇을 추천할지"는 규칙 테이블(rule table)이 결정한다 (안정적·일관적·무료).
-//  - "왜 그렇게 추천하는지 이유(reason)"는 담당 Agent 페르소나로 LLM이 실시간 생성한다.
-//  - LLM 실패 시 fallback 이유 문장으로 즉시 대체 (화면이 비지 않음).
+// 설계 원칙:
+//  - "무엇을 추천할지"는 규칙 테이블이 결정 (안정적·일관적·무료)
+//  - "왜 그렇게 추천하는지 이유"는 담당 Agent 페르소나로 LLM이 실시간 생성
+//  - LLM 실패 시 fallback 이유 문장으로 즉시 대체
 //
-// 클라이언트의 public/static/js/data/brief.js(window.BRIEF_AXES/PRESETS)와
-// 옵션 id/라벨을 동기화 유지할 것 (personas.ts ↔ agents.js 관계와 동일한 이중관리 원칙).
+// 취급 제품군: 차류 / 두유류 / 생식 / 프로틴바 / 프로틴쉐이크 / 특수의료용도식품
 import { AGENT_PERSONAS, type AgentId } from "./personas";
 import { callAgentLlm, type LlmEnv } from "./llm";
 
-export type RecAxis = "category" | "ingredient" | "format" | "reg" | "channel" | "strategy";
+export type RecAxis = "productType" | "ingredient" | "reg" | "channel" | "strategy";
 
 interface AxisRule {
-  category: string;
+  productType: string;
   ingredient: string[];
-  format: string;
   reg: string;
   channel: string[];
   strategy: string;
 }
 
-// 각 추천 축을 담당하는 Agent (brief.js의 axis.lead와 동일하게 매핑)
+// 각 추천 축 담당 Agent (brief.js axis.lead와 동기화)
 export const REC_AXIS_AGENT: Record<RecAxis, AgentId> = {
-  category: "mara",
-  ingredient: "rena",
-  format: "rena",
-  reg: "rega",
-  channel: "mara",
-  strategy: "finn",
+  productType: "mara",
+  ingredient:  "rena",
+  reg:         "rega",
+  channel:     "mara",
+  strategy:    "finn",
 };
 
-// 옵션 라벨(한국어) — LLM 프롬프트와 fallback 문장 생성에 사용 (dataset_generate.ts도 재사용)
+// 옵션 라벨(한국어) — LLM 프롬프트 + fallback 문장 + dataset_generate.ts 재사용
 export const LABELS: Record<string, Record<string, string>> = {
+  productType: {
+    tea:          "차류",
+    soymilk:      "두유류",
+    rawfood:      "생식",
+    proteinbar:   "프로틴바",
+    proteinshake: "프로틴쉐이크",
+    fsmp:         "특수의료용도식품(FSMP)",
+  },
+  // 내부 매핑용 (LLM 프롬프트에서 참조)
   category: {
     fsmp: "특수의료용도식품", hfunc: "건강기능식품", senior: "고령친화식품",
     personal: "개인맞춤형식품", general: "일반식품(기능성표시)", sports: "스포츠·퍼포먼스",
@@ -43,138 +49,177 @@ export const LABELS: Record<string, Record<string, string>> = {
   },
   condition: {
     metabolic: "대사(당뇨·비만)", sarco: "근감소증", cog: "인지(치매·MCI)", immune: "면역",
-    gut: "장 건강", cardio: "심혈관", bone: "뼈·관절", renal: "신장", cancer: "암 환자 영양",
-    dysph: "연하곤란", sleep: "수면·스트레스", beauty: "이너뷰티",
+    gut: "장 건강", cardio: "심혈관", bone: "뼈·관절", renal: "신장",
+    cancer: "암 환자 영양", dysph: "연하곤란", sleep: "수면·스트레스",
+    beauty: "이너뷰티", energy: "에너지·피로", weight: "체중 관리",
   },
   ingredient: {
     plant: "식물성(Plant-based)", ferment: "발효", herbal: "허브·식물추출", marine: "해양",
-    dairy: "유청·유단백", insect: "곤충·대체단백", syn: "합성·정밀영양", func: "기능성 원료",
-  },
-  format: {
-    liquid: "액상(RTD)", powder: "분말 스틱", jelly: "젤리·파우치", tablet: "정제·캡슐",
-    bar: "바·씨리얼", solid: "고형 식사식", gum: "츄어블·구미", spray: "액상 스프레이",
+    dairy: "유청·유단백", grain: "곡물·두류", syn: "합성·정밀영양", func: "기능성 원료",
   },
   reg: {
-    fsmp: "FSMP 표준제조기준", "hfunc-i": "건기식 개별인정", "hfunc-n": "건기식 고시형",
-    label: "일반식품 표시제", seniorks: "고령친화식품 KS", regular: "일반식품",
+    fsmp: "FSMP 표준제조기준", "hfunc-n": "건기식 고시형",
+    label: "기능성표시 일반식품", regular: "일반식품",
   },
   channel: {
     hospital: "병원·의료기관", nursing: "요양·복지시설", d2c: "온라인 D2C", phar: "약국·H&B",
     mart: "대형마트·이커머스", conv: "편의점", export: "수출", corp: "기업 복지·B2B2C",
   },
   strategy: {
-    premium: "프리미엄", mass: "매스마켓", subs: "정기 구독", value: "가치소비",
-    reim: "급여·수가 진입", custom: "완전 맞춤형",
+    premium: "프리미엄", mass: "매스마켓", subs: "정기 구독",
+    value: "가치소비", reim: "급여·수가 진입", custom: "완전 맞춤형",
   },
+};
+
+// productType → 내부 category / format / reg 매핑 (dataset_generate.ts에서도 사용)
+export const PRODUCT_TYPE_META: Record<string, { category: string; format: string; reg: string }> = {
+  tea:          { category: "general", format: "liquid",  reg: "regular" },
+  soymilk:      { category: "general", format: "liquid",  reg: "regular" },
+  rawfood:      { category: "general", format: "powder",  reg: "regular" },
+  proteinbar:   { category: "sports",  format: "bar",     reg: "regular" },
+  proteinshake: { category: "sports",  format: "powder",  reg: "regular" },
+  fsmp:         { category: "fsmp",    format: "liquid",  reg: "fsmp"    },
+};
+
+export const CATEGORY_DEFAULT_REG: Record<string, string> = {
+  fsmp:     "fsmp",
+  hfunc:    "hfunc-n",
+  senior:   "regular",
+  personal: "hfunc-n",
+  general:  "regular",
+  sports:   "regular",
+  meal:     "regular",
+  infant:   "fsmp",
 };
 
 export function label(axis: string, id: string): string {
   return LABELS[axis]?.[id] || id;
 }
 
-// ---------- 규칙 테이블 1: 건강이슈(condition) 기본값 ----------
-const CONDITION_DEFAULTS: Record<string, AxisRule> = {
-  metabolic: { category: "fsmp",     ingredient: ["dairy", "plant"],  format: "liquid", reg: "fsmp",     channel: ["hospital", "d2c"],   strategy: "premium" },
-  sarco:     { category: "senior",   ingredient: ["dairy", "plant"],  format: "jelly",  reg: "seniorks", channel: ["nursing", "hospital"], strategy: "value" },
-  cog:       { category: "hfunc",    ingredient: ["herbal", "marine"], format: "tablet", reg: "hfunc-i",  channel: ["d2c", "phar"],       strategy: "premium" },
-  immune:    { category: "hfunc",    ingredient: ["herbal", "func"],  format: "tablet", reg: "hfunc-n",  channel: ["d2c", "phar"],        strategy: "premium" },
-  gut:       { category: "general",  ingredient: ["ferment", "plant"], format: "liquid", reg: "label",    channel: ["d2c", "conv"],       strategy: "subs" },
-  cardio:    { category: "hfunc",    ingredient: ["plant", "marine"], format: "tablet", reg: "hfunc-i",  channel: ["d2c", "phar"],        strategy: "premium" },
-  bone:      { category: "senior",   ingredient: ["dairy", "plant"],  format: "powder", reg: "seniorks", channel: ["nursing", "d2c"],     strategy: "value" },
-  renal:     { category: "fsmp",     ingredient: ["plant", "syn"],    format: "liquid", reg: "fsmp",     channel: ["hospital"],           strategy: "reim" },
-  cancer:    { category: "fsmp",     ingredient: ["dairy", "syn"],    format: "liquid", reg: "fsmp",     channel: ["hospital"],           strategy: "reim" },
-  dysph:     { category: "senior",   ingredient: ["dairy", "plant"],  format: "jelly",  reg: "seniorks", channel: ["nursing", "hospital"], strategy: "value" },
-  sleep:     { category: "hfunc",    ingredient: ["herbal", "func"], format: "gum",    reg: "hfunc-i",  channel: ["d2c"],                strategy: "subs" },
-  beauty:    { category: "general",  ingredient: ["marine", "ferment"], format: "jelly", reg: "label",   channel: ["d2c", "mart"],        strategy: "premium" },
-};
-
-// ---------- 규칙 테이블 2: 생애주기 보정 (카테고리/포맷/채널/전략 override) ----------
-interface LifecycleAdj {
-  category?: string;
-  format?: string;
-  channel?: string[];
-  strategy?: string;
-}
-const LIFECYCLE_ADJUST: Record<string, LifecycleAdj> = {
-  infant: { category: "infant",  format: "liquid", channel: ["phar", "hospital"] },
-  child:  {},
-  adult:  {},
-  preg:   { format: "powder" },
-  middle: {},
-  senior: { category: "senior",  format: "jelly",  channel: ["nursing", "hospital"] },
-  super:  { category: "senior",  format: "jelly",  channel: ["nursing"] },
-  all:    {},
-};
-
 function dedupCap<T>(arr: T[], cap: number): T[] {
   return Array.from(new Set(arr)).slice(0, cap);
 }
 
-// category → 표준 규제 경로 매핑
-// category가 바뀌었을 때 reg도 그에 맞게 정렬한다
-const CATEGORY_DEFAULT_REG: Record<string, string> = {
-  fsmp:     "fsmp",
-  hfunc:    "hfunc-i",
-  senior:   "seniorks",   // 고령친화식품 → KS 인증 (임의인증, 3개월)
-  personal: "hfunc-i",
-  general:  "label",
-  sports:   "label",
-  meal:     "regular",
-  infant:   "fsmp",
+// ---------- 규칙 테이블 1: condition 기반 ingredient 추천 ----------
+const CONDITION_INGREDIENT: Record<string, string[]> = {
+  metabolic: ["dairy", "plant", "syn"],
+  sarco:     ["dairy", "plant", "syn"],
+  cog:       ["herbal", "marine", "func"],
+  immune:    ["herbal", "func", "plant"],
+  gut:       ["ferment", "plant", "grain"],
+  cardio:    ["plant", "marine", "func"],
+  bone:      ["dairy", "plant", "func"],
+  renal:     ["plant", "syn", "grain"],
+  cancer:    ["dairy", "syn", "plant"],
+  dysph:     ["dairy", "plant", "grain"],
+  sleep:     ["herbal", "func", "plant"],
+  beauty:    ["marine", "ferment", "func"],
+  energy:    ["syn", "herbal", "func"],
+  weight:    ["plant", "grain", "ferment"],
 };
 
-export function computeRuleRecommendation(lifecycle: string, condition: string[]): AxisRule {
-  const primary = condition[0] || "metabolic";
-  const base = CONDITION_DEFAULTS[primary] || CONDITION_DEFAULTS.metabolic;
-  const adj = LIFECYCLE_ADJUST[lifecycle] || {};
+// ---------- 규칙 테이블 2: productType 기본 추천 ----------
+const PRODUCT_TYPE_DEFAULTS: Record<string, AxisRule> = {
+  tea:          { productType: "tea",          ingredient: ["herbal","plant","func"],   reg: "regular", channel: ["d2c","conv"],          strategy: "subs"    },
+  soymilk:      { productType: "soymilk",      ingredient: ["plant","grain","ferment"], reg: "regular", channel: ["mart","d2c"],           strategy: "mass"    },
+  rawfood:      { productType: "rawfood",       ingredient: ["plant","grain","ferment"], reg: "regular", channel: ["d2c","mart"],           strategy: "premium" },
+  proteinbar:   { productType: "proteinbar",    ingredient: ["dairy","plant","grain"],   reg: "regular", channel: ["conv","mart","d2c"],    strategy: "mass"    },
+  proteinshake: { productType: "proteinshake",  ingredient: ["dairy","plant","syn"],     reg: "regular", channel: ["d2c","mart"],           strategy: "subs"    },
+  fsmp:         { productType: "fsmp",          ingredient: ["dairy","plant","syn"],     reg: "fsmp",    channel: ["hospital","nursing"],   strategy: "reim"    },
+};
 
-  // 건강이슈를 여러 개 고른 경우, 각 이슈의 추천 원료를 합쳐서 제시
+// ---------- 규칙 테이블 3: condition → productType 최적 추천 ----------
+const CONDITION_PRODUCT_TYPE: Record<string, string> = {
+  metabolic: "fsmp",
+  sarco:     "proteinshake",
+  cog:       "tea",
+  immune:    "tea",
+  gut:       "soymilk",
+  cardio:    "tea",
+  bone:      "proteinshake",
+  renal:     "fsmp",
+  cancer:    "fsmp",
+  dysph:     "fsmp",
+  sleep:     "tea",
+  beauty:    "soymilk",
+  energy:    "proteinshake",
+  weight:    "rawfood",
+};
+
+// ---------- 규칙 테이블 4: lifecycle 보정 ----------
+interface LifecycleAdj {
+  productType?: string;
+  channel?: string[];
+  strategy?: string;
+}
+const LIFECYCLE_ADJUST: Record<string, LifecycleAdj> = {
+  infant: { productType: "fsmp",  channel: ["phar", "hospital"] },
+  child:  {},
+  adult:  {},
+  preg:   { productType: "fsmp",  channel: ["hospital", "phar"] },
+  middle: {},
+  senior: { channel: ["nursing", "hospital", "d2c"] },
+  super:  { productType: "fsmp",  channel: ["nursing"] },
+  all:    {},
+};
+
+export function computeRuleRecommendation(
+  lifecycle: string,
+  condition: string[],
+  selectedProductType?: string
+): AxisRule {
+  const primary = condition[0] || "metabolic";
+
+  // productType: 사용자가 이미 선택했으면 그대로, 아니면 condition → 추천
+  const rawProductType = selectedProductType || CONDITION_PRODUCT_TYPE[primary] || "proteinshake";
+  const adj = LIFECYCLE_ADJUST[lifecycle] || {};
+  const finalProductType = adj.productType || rawProductType;
+
+  const base = PRODUCT_TYPE_DEFAULTS[finalProductType] || PRODUCT_TYPE_DEFAULTS.proteinshake;
+
+  // ingredient: condition 여러 개 합산 후 상위 3개
   const mergedIngredients = dedupCap(
-    condition.flatMap((c) => (CONDITION_DEFAULTS[c] || base).ingredient),
+    condition.flatMap((c) => CONDITION_INGREDIENT[c] || []),
     3
   );
+  const finalIngredient = mergedIngredients.length ? mergedIngredients : base.ingredient;
 
-  // 최종 category 결정 (lifecycle 보정 우선)
-  const finalCategory = adj.category || base.category;
-
-  // reg: category가 lifecycle 보정으로 바뀐 경우 reg도 category에 맞게 정렬
-  // (예: cog → hfunc-i 이지만 lifecycle=senior로 category=senior가 되면 → seniorks)
-  const finalReg =
-    adj.category && adj.category !== base.category
-      ? (CATEGORY_DEFAULT_REG[finalCategory] ?? base.reg)
-      : base.reg;
+  // reg: productType이 fsmp면 fsmp, 나머지는 condition 기반 reg
+  const finalReg = finalProductType === "fsmp" ? "fsmp" : base.reg;
 
   return {
-    category: finalCategory,
-    ingredient: mergedIngredients.length ? mergedIngredients : base.ingredient,
-    format: adj.format || base.format,
-    reg: finalReg,
-    channel: dedupCap([...(adj.channel || []), ...base.channel], 2),
-    strategy: adj.strategy || base.strategy,
+    productType: finalProductType,
+    ingredient:  finalIngredient,
+    reg:         finalReg,
+    channel:     dedupCap([...(adj.channel || []), ...base.channel], 3),
+    strategy:    adj.strategy || base.strategy,
   };
 }
 
-// ---------- Fallback 이유 문장 (LLM 실패 시 즉시 대체) ----------
-export function buildFallbackReason(axis: RecAxis, lifecycle: string, condition: string[], rec: AxisRule): string {
+// ---------- Fallback 이유 문장 ----------
+export function buildFallbackReason(
+  axis: RecAxis,
+  lifecycle: string,
+  condition: string[],
+  rec: AxisRule
+): string {
   const lifeL = label("lifecycle", lifecycle);
   const condL = condition.map((c) => label("condition", c)).join("·");
   switch (axis) {
-    case "category":
-      return `${lifeL} × ${condL} 조합에는 ${label("category", rec.category)} 카테고리가 규제·시장 적합도 측면에서 가장 알맞습니다.`;
+    case "productType":
+      return `${lifeL} × ${condL} 조합에는 ${label("productType", rec.productType)} 제품군이 시장·규제 적합도 측면에서 가장 알맞습니다.`;
     case "ingredient":
       return `${condL} 이슈 대응에는 ${rec.ingredient.map((i) => label("ingredient", i)).join("·")} 원료 조합이 배합 안정성과 근거 확보에 유리합니다.`;
-    case "format":
-      return `${lifeL} 대상 특성상 ${label("format", rec.format)} 제형이 관능·순응도·물류 측면에서 적합합니다.`;
     case "reg":
-      return `${label("category", rec.category)} 카테고리는 ${label("reg", rec.reg)} 경로가 표준적인 인허가 절차입니다.`;
+      return `${label("productType", rec.productType)} 제품군은 ${label("reg", rec.reg)} 경로가 표준적인 인허가 절차입니다.`;
     case "channel":
-      return `${rec.channel.map((c) => label("channel", c)).join("·")} 채널이 이 조합의 초기 진입 CAC·계약 안정성 측면에서 유리합니다.`;
+      return `${rec.channel.map((c) => label("channel", c)).join("·")} 채널이 이 제품군의 초기 진입 CAC·계약 안정성 측면에서 유리합니다.`;
     case "strategy":
       return `이 조합은 ${label("strategy", rec.strategy)} 전략일 때 판가 방어력과 시장 적합도가 가장 높습니다.`;
   }
 }
 
-// ---------- LLM 이유 생성 (담당 Agent 페르소나 사용, 실패 시 fallback) ----------
+// ---------- LLM 이유 생성 ----------
 async function generateReason(
   env: LlmEnv,
   axis: RecAxis,
@@ -192,6 +237,7 @@ async function generateReason(
       : label(axis, rec[axis] as string);
 
   const condLabel = condition.map((c) => label("condition", c)).join("·");
+  const ptLabel   = label("productType", rec.productType);
 
   try {
     const msg = await callAgentLlm(
@@ -199,12 +245,18 @@ async function generateReason(
       [
         {
           role: "system",
-          content: `당신은 ${persona.name}입니다 — ${persona.role} 담당 AI Agent (Phytolab.AI Multi-Agent 제품설계팀).
+          content: `당신은 ${persona.name}입니다 — ${persona.role} 담당 AI Agent (Phytolab.AI 제품설계팀).
 전문 영역: ${persona.expertise}
 성격: ${persona.persona}
 말투: ${persona.toneNote}
 
-지금은 STAGE 00 브리프 단계입니다. 사용자가 생애주기 "${label("lifecycle", lifecycle)}"와 건강이슈 "${condLabel}"를 선택했고, 당신의 담당 축에 "${axisValueLabel}"를 추천하려 합니다. 왜 이 추천이 타당한지 1문장(50자 내외)으로 짧게 설명하세요. 인사말·이모지·따옴표 없이 이유 문장만 출력하세요.`,
+지금은 STAGE 00 브리프 단계입니다.
+- 대상: ${label("lifecycle", lifecycle)}
+- 건강이슈: ${condLabel}
+- 제품군: ${ptLabel}
+- 추천 값(${axis}): ${axisValueLabel}
+
+왜 이 추천이 타당한지 1문장(50자 내외)으로 짧게 설명하세요. 인사말·이모지·따옴표 없이 이유 문장만 출력하세요.`,
         },
         { role: "user", content: "추천 이유를 한 문장으로 말해주세요." },
       ],
@@ -225,10 +277,11 @@ export interface BriefRecommendResult {
 export async function getBriefRecommendation(
   env: LlmEnv,
   lifecycle: string,
-  condition: string[]
+  condition: string[],
+  selectedProductType?: string
 ): Promise<BriefRecommendResult> {
-  const rec = computeRuleRecommendation(lifecycle, condition);
-  const axes: RecAxis[] = ["category", "ingredient", "format", "reg", "channel", "strategy"];
+  const rec = computeRuleRecommendation(lifecycle, condition, selectedProductType);
+  const axes: RecAxis[] = ["productType", "ingredient", "reg", "channel", "strategy"];
 
   const results = await Promise.all(axes.map((axis) => generateReason(env, axis, lifecycle, condition, rec)));
 

@@ -8,14 +8,17 @@
 
 const { useState, useEffect, useMemo, useRef } = React;
 
-// category → 표준 규제 경로 (서버 brief_recommend.ts의 CATEGORY_DEFAULT_REG와 동기화 유지)
-const CATEGORY_DEFAULT_REG = {
-  fsmp: "fsmp", hfunc: "hfunc-i", senior: "seniorks",
-  personal: "hfunc-i", general: "label", sports: "label",
-  meal: "regular", infant: "fsmp",
+// productType → { category, format, reg } 내부 매핑 (서버 PRODUCT_TYPE_META와 동기화)
+const PRODUCT_TYPE_META = {
+  tea:          { category: "general", format: "liquid",  reg: "regular", label: "차류" },
+  soymilk:      { category: "general", format: "liquid",  reg: "regular", label: "두유류" },
+  rawfood:      { category: "general", format: "powder",  reg: "regular", label: "생식" },
+  proteinbar:   { category: "sports",  format: "bar",     reg: "regular", label: "프로틴바" },
+  proteinshake: { category: "sports",  format: "powder",  reg: "regular", label: "프로틴쉐이크" },
+  fsmp:         { category: "fsmp",    format: "liquid",  reg: "fsmp",    label: "특수의료용도식품" },
 };
 
-const REC_AXES = ["category", "ingredient", "format", "reg", "channel", "strategy"];
+const REC_AXES = ["productType", "ingredient", "reg", "channel", "strategy"];
 
 // ---------- 유틸: 스코어 계산 ----------
 function calcScores(sel) {
@@ -265,12 +268,12 @@ function BriefLanding({ onLaunch }) {
     const saved = localStorage.getItem("phytolab-brief");
     if (!saved) return {};
     const parsed = JSON.parse(saved);
-    // category와 reg가 불일치하면 reg를 category 기준으로 재정렬
+    // productType과 reg가 불일치하면 reg를 productType 기준으로 재정렬
     // (이전 세션의 잘못된 추천값이 캐시된 채 복원되는 것을 방지)
-    if (parsed.category && parsed.reg) {
-      const correctReg = CATEGORY_DEFAULT_REG[parsed.category];
-      if (correctReg && parsed.reg !== correctReg) {
-        parsed.reg = correctReg;
+    if (parsed.productType && parsed.reg) {
+      const meta = PRODUCT_TYPE_META[parsed.productType];
+      if (meta && parsed.reg !== meta.reg) {
+        parsed.reg = meta.reg;
         localStorage.setItem("phytolab-brief", JSON.stringify(parsed));
       }
     }
@@ -349,20 +352,21 @@ function BriefLanding({ onLaunch }) {
       const res = await fetch("/api/brief/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lifecycle, condition }),
+        body: JSON.stringify({ lifecycle, condition, productType: sel.productType }),
       });
       if (!res.ok) throw new Error(`status ${res.status}`);
       const data = await res.json();
       const rec = data.recommendation;
-      // category와 reg 불일치 시 클라이언트에서도 재정렬 (서버 로직과 동기화)
-      const safeReg = CATEGORY_DEFAULT_REG[rec.category] || rec.reg;
-      if (rec.reg !== safeReg) rec.reg = safeReg;
+      // productType과 reg 불일치 시 클라이언트에서도 재정렬 (서버 PRODUCT_TYPE_META와 동기화)
+      if (rec.productType) {
+        const meta = PRODUCT_TYPE_META[rec.productType];
+        if (meta && rec.reg !== meta.reg) rec.reg = meta.reg;
+      }
 
       setSel(prev => ({
         ...prev,
-        category: rec.category,
+        productType: rec.productType,
         ingredient: rec.ingredient,
-        format: rec.format,
         reg: rec.reg,
         channel: rec.channel,
         strategy: rec.strategy,
@@ -462,9 +466,8 @@ function BriefLanding({ onLaunch }) {
         body: JSON.stringify({
           lifecycle: sel.lifecycle,
           condition: sel.condition,
-          category: sel.category,
+          productType: sel.productType,
           reg: sel.reg,
-          format: sel.format,
           ingredient: sel.ingredient,
           channel: sel.channel,
           strategy: sel.strategy,
@@ -507,10 +510,10 @@ function BriefLanding({ onLaunch }) {
   const condLabel = (sel.condition || []).map(id => leadAxes[1].options.find(o => o.id === id)?.label).filter(Boolean).join("·");
 
   // 제품 유형 표시용 — 브리프 선택값 기반 (AI 생성 전)
-  const categoryAxis = window.BRIEF_AXES.find(ax => ax.id === "category");
+  const productTypeAxis = window.BRIEF_AXES.find(ax => ax.id === "productType");
   const regAxis = window.BRIEF_AXES.find(ax => ax.id === "reg");
-  const selectedCategoryLabel = categoryAxis?.options.find(o => o.id === sel.category)?.label || "";
-  const selectedCategorySubLabel = categoryAxis?.options.find(o => o.id === sel.category)?.sub || "";
+  const selectedProductTypeLabel = productTypeAxis?.options.find(o => o.id === sel.productType)?.label || "";
+  const selectedProductTypeSubLabel = productTypeAxis?.options.find(o => o.id === sel.productType)?.sub || "";
   const selectedRegLabel = regAxis?.options.find(o => o.id === sel.reg)?.label || "";
   const selectedRegSubLabel = regAxis?.options.find(o => o.id === sel.reg)?.sub || "";
 
@@ -600,18 +603,18 @@ function BriefLanding({ onLaunch }) {
           <div className="brief-gen-box">
             <div className="thinking-dots"><span></span><span></span><span></span></div>
             <div className="brief-gen-text">AI가 브리프에 맞는 제품 데이터를 생성하고 있습니다…</div>
-            {(selectedCategoryLabel || selectedRegLabel) && (
+            {(selectedProductTypeLabel || selectedRegLabel) && (
               <div className="brief-gen-product-type">
-                {/* 제품 정의: 카테고리 + 규제 클래스를 하나의 제품 정의 블록으로 표시 */}
+                {/* 제품 정의: 제품군 + 규제 클래스를 하나의 제품 정의 블록으로 표시 */}
                 <div className="brief-gen-type-header mono">생성 대상 제품</div>
                 <div className="brief-gen-type-definition">
-                  {selectedCategoryLabel && (
+                  {selectedProductTypeLabel && (
                     <div className="brief-gen-type-row">
-                      <span className="brief-gen-type-key mono">카테고리</span>
+                      <span className="brief-gen-type-key mono">제품군</span>
                       <div className="brief-gen-type-val-wrap">
-                        <span className="brief-gen-type-val">{selectedCategoryLabel}</span>
-                        {selectedCategorySubLabel && (
-                          <span className="brief-gen-type-sub mono">{selectedCategorySubLabel}</span>
+                        <span className="brief-gen-type-val">{selectedProductTypeLabel}</span>
+                        {selectedProductTypeSubLabel && (
+                          <span className="brief-gen-type-sub mono">{selectedProductTypeSubLabel}</span>
                         )}
                       </div>
                     </div>
@@ -627,9 +630,9 @@ function BriefLanding({ onLaunch }) {
                       </div>
                     </div>
                   )}
-                  {selectedCategoryLabel && selectedRegLabel && (
+                  {selectedProductTypeLabel && selectedRegLabel && (
                     <div className="brief-gen-type-note mono">
-                      ✦ {selectedCategoryLabel} 제품을 {selectedRegLabel} 경로로 개발합니다
+                      ✦ {selectedProductTypeLabel} 제품을 {selectedRegLabel} 경로로 개발합니다
                     </div>
                   )}
                 </div>

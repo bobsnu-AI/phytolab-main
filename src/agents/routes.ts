@@ -57,18 +57,18 @@ app.post("/api/brief/generate", async (c) => {
 
 // STAGE 00 · Brief 추천 엔진 — lifecycle × condition 선택 시 나머지 6개 축을 추천
 app.post("/api/brief/recommend", async (c) => {
-  let body: { lifecycle?: string; condition?: string[] };
+  let body: { lifecycle?: string; condition?: string[]; productType?: string };
   try {
     body = await c.req.json();
   } catch {
     return c.json({ error: "invalid json body" }, 400);
   }
-  const { lifecycle, condition } = body;
+  const { lifecycle, condition, productType } = body;
   if (!lifecycle || !condition || !condition.length) {
     return c.json({ error: "lifecycle, condition 필수" }, 400);
   }
 
-  const result = await getBriefRecommendation(c.env, lifecycle, condition);
+  const result = await getBriefRecommendation(c.env, lifecycle, condition, productType);
   return c.json(result);
 });
 

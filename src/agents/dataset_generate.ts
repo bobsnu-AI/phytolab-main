@@ -7,11 +7,12 @@ import { label } from "./brief_recommend";
 import { fetchConsumerInsights, type NaverEnv } from "./consumer_insights";
 
 export interface ConfirmedBrief {
-  category?: string;
+  productType?: string;  // 6개 제품군: tea/soymilk/rawfood/proteinbar/proteinshake/fsmp
+  category?: string;    // 내부 매핑용 (PRODUCT_TYPE_META에서 파생)
   lifecycle: string;
   condition: string[];
   ingredient?: string[];
-  format?: string;
+  format?: string;      // 내부 매핑용 (PRODUCT_TYPE_META에서 파생)
   reg?: string;
   channel?: string[];
   strategy?: string;
@@ -21,16 +22,41 @@ const SYSTEM_PROMPT =
   "JSON 생성 전용 엔진입니다. 유효한 JSON 객체 하나만 출력하세요. " +
   "코드펜스(```), 설명, 인사말 절대 금지. 숫자는 현실적 범위로, 한국어는 명사형으로.";
 
+// productType → 내부 category/format 매핑
+const PRODUCT_TYPE_META: Record<string, { category: string; format: string; label: string }> = {
+  tea:          { category: "general", format: "liquid",  label: "차류" },
+  soymilk:      { category: "general", format: "liquid",  label: "두유류" },
+  rawfood:      { category: "general", format: "powder",  label: "생식" },
+  proteinbar:   { category: "sports",  format: "bar",     label: "프로틴바" },
+  proteinshake: { category: "sports",  format: "powder",  label: "프로틴쉐이크" },
+  fsmp:         { category: "fsmp",    format: "liquid",  label: "특수의료용도식품" },
+};
+
 function briefDescription(brief: ConfirmedBrief): string {
   const parts: string[] = [];
-  if (brief.category) parts.push(`카테고리: ${label("category", brief.category)}`);
+  // productType 우선, 없으면 category fallback
+  if (brief.productType) {
+    const ptMeta = PRODUCT_TYPE_META[brief.productType];
+    parts.push(`제품군: ${ptMeta?.label || brief.productType}`);
+  } else if (brief.category) {
+    parts.push(`카테고리: ${label("category", brief.category)}`);
+  }
   parts.push(`생애주기: ${label("lifecycle", brief.lifecycle)}`);
   parts.push(`건강이슈: ${brief.condition.map((c) => label("condition", c)).join("·")}`);
   if (brief.ingredient?.length) parts.push(`원료 선호: ${brief.ingredient.map((i) => label("ingredient", i)).join("·")}`);
-  if (brief.format) parts.push(`제형: ${label("format", brief.format)}`);
   if (brief.channel?.length) parts.push(`유통 채널: ${brief.channel.map((c) => label("channel", c)).join("·")}`);
   if (brief.strategy) parts.push(`비즈 전략: ${label("strategy", brief.strategy)}`);
   return parts.join(" / ");
+}
+
+// brief에서 실제 category/format 결정 (productType 우선)
+function resolveCategory(brief: ConfirmedBrief): string {
+  if (brief.productType) return PRODUCT_TYPE_META[brief.productType]?.category || "general";
+  return brief.category || "general";
+}
+function resolveFormat(brief: ConfirmedBrief): string {
+  if (brief.productType) return PRODUCT_TYPE_META[brief.productType]?.format || "liquid";
+  return brief.format || "liquid";
 }
 
 function extractJson(text: string): any {
