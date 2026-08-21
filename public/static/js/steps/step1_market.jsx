@@ -20,6 +20,15 @@ const Step1Market = () => {
   const nutritionCompare = PHYTO_DATA.nutritionCompare;
   const Reveal = window.RevealSection || (({ children }) => children);
 
+  // 제품군 레이블: productType 우선 → categoryLabel → category 순으로 해석
+  const PRODUCT_TYPE_LABELS = {
+    tea: "차류", soymilk: "두유류", rawfood: "생식",
+    proteinbar: "프로틴바", proteinshake: "프로틴쉐이크", fsmp: "특수의료용도식품",
+  };
+  const productTypeLabel = product.productType
+    ? (PRODUCT_TYPE_LABELS[product.productType] || product.categoryLabel || product.productType)
+    : (product.categoryLabel || product.category || "-");
+
   // 출처 목록 접기/펼치기 상태
   const [srcOpen, setSrcOpen] = React.useState(false);
   const [srcFilter, setSrcFilter] = React.useState("all"); // all | blog | news | cafe
@@ -42,14 +51,14 @@ const Step1Market = () => {
         <div className="step-badges">
           <div className="badge badge-product-type">
             <span className="badge-k">제품 유형</span>
-            <span className="badge-v">{product.category || "특수의료용도식품"}</span>
+            <span className="badge-v">{productTypeLabel}</span>
           </div>
           <div className="badge badge-reg-class">
             <span className="badge-k">규제 클래스</span>
             <span className="badge-v mono" title={product.regClass || ""}>{product.regClass || "FSMP 표준제조기준"}</span>
           </div>
           <div className="badge"><span className="badge-k">DATA</span><span className="badge-v-row"><span className="badge-v">식약처 · KDA · Global Data</span><window.SourceTag id="mfds_fsmp_standard" label="" /></span></div>
-          <div className="badge"><span className="badge-k">SCAN</span><span className="badge-v-row"><span className="badge-v mono">{product.category || "FSMP"} {PHYTO_DATA.competitors?.length || 218} SKU</span><window.SourceTag id="agent_estimate" label="" /></span></div>
+          <div className="badge"><span className="badge-k">SCAN</span><span className="badge-v-row"><span className="badge-v mono">{productTypeLabel} {PHYTO_DATA.competitors?.length || 218} SKU</span><window.SourceTag id="agent_estimate" label="" /></span></div>
           <div className="badge"><span className="badge-k">SKUS</span><span className="badge-v mono">스캔 {PHYTO_DATA.competitors?.length || 62} · 채택 5</span></div>
           <div className="badge"><span className="badge-k">UPDATED</span><span className="badge-v mono">2026-06-28</span></div>
         </div>
@@ -77,7 +86,7 @@ const Step1Market = () => {
       <Reveal id="kpi" label="시장 규모 KPI" agent="mara">
         <div className="kpi-grid">
           <div className="kpi kpi-primary">
-            <div className="kpi-label-row"><span className="kpi-label">국내 FSMP 시장</span><window.SourceTag id={d.domestic.sourceKey} label="출처" /></div>
+            <div className="kpi-label-row"><span className="kpi-label">국내 {productTypeLabel} 시장</span><window.SourceTag id={d.domestic.sourceKey} label="출처" /></div>
             <div className="kpi-value"><span className="kpi-num">{d.domestic.size.toLocaleString()}</span><span className="kpi-unit">{d.domestic.unit}</span></div>
             <div className="kpi-delta up">▲ {d.domestic.year}→2033 성장 전망 (3배 이상)</div>
             <svg className="kpi-spark" viewBox="0 0 100 30" preserveAspectRatio="none">
@@ -357,7 +366,7 @@ const Step1Market = () => {
               <div className="nt-value">{concept.shoppingSummary?.topShoppingKeyword || "-"}</div>
               <div className="nt-sub mono">
                 클릭 점유율 {concept.shoppingSummary?.topShoppingRatio || 0}%
-                <span className="nt-category"> · 건강기능식품</span>
+                <span className="nt-category"> · {productTypeLabel}</span>
               </div>
               {concept.shoppingSummary?.topShoppingRatio && (
                 <div className="nt-bar-wrap">

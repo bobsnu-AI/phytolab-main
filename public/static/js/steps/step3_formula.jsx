@@ -75,7 +75,7 @@ const Step3Formula = () => {
       <div className="step-header">
         <div>
           <div className="step-eyebrow mono">STAGE 03 · FORMULATION</div>
-          <h1 className="step-title">배합 설계 · {PHYTO_DATA.product?.regClass || "FSMP"} 영양기준 검증</h1>
+          <h1 className="step-title">배합 설계 · {PHYTO_DATA.product?.regClass || (PHYTO_DATA.product?.productType ? {tea:"차류",soymilk:"두유류",rawfood:"생식",proteinbar:"프로틴바",proteinshake:"프로틴쉐이크",fsmp:"FSMP"}[PHYTO_DATA.product.productType] : null) || "식품"} 영양기준 검증</h1>
           <div className="step-desc">{PHYTO_DATA.product?.target ? `${PHYTO_DATA.product.target} 맞춤 ` : ""}원료·용량·제형을 조정하면 표준제조기준 준수도를 실시간 검증합니다</div>
         </div>
         <div className="step-badges">
@@ -113,14 +113,17 @@ const Step3Formula = () => {
         </div>
       </div>
 
-      {/* 영양기준 준수 상단 스트립 — 카테고리/reg별 동적 기준 */}
+      {/* 영양기준 준수 상단 스트립 — productType 기반 동적 기준 */}
       {(() => {
+        const productType = PHYTO_DATA.product?.productType || "";
         const reg = PHYTO_DATA.product?.regClass || PHYTO_DATA.product?.reg || "";
         const cat = PHYTO_DATA.product?.category || "";
-        // reg/category에 따른 기준 분기
-        const isFsmp = /FSMP|fsmp|특수의료용도/i.test(reg + cat);
+        // productType 우선 분기, 없으면 reg/category 텍스트 fallback
+        const isFsmp = productType === "fsmp" || /FSMP|fsmp|특수의료용도/i.test(reg + cat);
         const isSenior = /senior|고령|seniorks/i.test(reg + cat);
-        const isHfunc = /hfunc|건강기능|기능성/i.test(reg + cat);
+        // proteinbar/proteinshake → 스포츠 영양 기준
+        const isSports = productType === "proteinbar" || productType === "proteinshake";
+        // tea/soymilk/rawfood → 일반 식품 기준 (건강기능식품 아님)
 
         let headerLabel, compCells;
         if (isFsmp) {
@@ -141,14 +144,14 @@ const Step3Formula = () => {
             <ComplianceCell label="나트륨 ≤300mg" value={PHYTO_DATA.target?.nutritionTarget?.sodium?.value ?? 150} min={0} max={300} unit="mg" inverse />
             <ComplianceCell label="GI ≤ 65" value={estimatedGi} min={0} max={65} unit="GI" inverse />
           </>);
-        } else if (isHfunc) {
-          headerLabel = "건강기능식품 기준 준수도";
+        } else if (isSports) {
+          headerLabel = "스포츠 영양 기준 준수도";
           compCells = (<>
-            <ComplianceCell label="열량 적정" value={kcal} min={50} max={500} unit="kcal" />
-            <ComplianceCell label="단백 10–30%en" value={proteinPct} min={10} max={30} unit="%en" />
-            <ComplianceCell label="지방 ≤40%en" value={fatPct} min={0} max={40} unit="%en" inverse />
-            <ComplianceCell label="탄수 30–60%en" value={carbPct} min={30} max={60} unit="%en" />
-            <ComplianceCell label="GI ≤ 60" value={estimatedGi} min={0} max={60} unit="GI" inverse />
+            <ComplianceCell label="단백 ≥25%en" value={proteinPct} min={25} max={60} unit="%en" />
+            <ComplianceCell label="지방 ≤35%en" value={fatPct} min={0} max={35} unit="%en" inverse />
+            <ComplianceCell label="탄수 30–55%en" value={carbPct} min={30} max={55} unit="%en" />
+            <ComplianceCell label="열량 150–450 kcal" value={kcal} min={150} max={450} unit="kcal" />
+            <ComplianceCell label="GI ≤ 65" value={estimatedGi} min={0} max={65} unit="GI" inverse />
           </>);
         } else {
           // 일반 식품/라벨 제품 — 광범위 기준

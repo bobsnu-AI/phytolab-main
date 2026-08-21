@@ -262,8 +262,16 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
     sensoryAxes: GENERIC_SENSORY_AXES,
   };
 
+  // brief.productType을 product 객체에 항상 주입 — LLM이 category를 자의적으로 쓰더라도
+  // UI는 productType + PRODUCT_TYPE_META 기준으로만 표시한다
+  const ptMeta = brief.productType ? PRODUCT_TYPE_META[brief.productType] : null;
+  const productOverride = {
+    ...(brief.productType ? { productType: brief.productType } : {}),
+    ...(ptMeta        ? { categoryLabel: ptMeta.label }  : {}),
+  };
+
   return {
-    product: { ...FALLBACK_PRODUCT, ...a.product },
+    product: { ...FALLBACK_PRODUCT, ...a.product, ...productOverride },
     market: {
       ...FALLBACK_MARKET,
       ...a.market,
