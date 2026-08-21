@@ -41,8 +41,9 @@ function calcScores(sel) {
   return out;
 }
 
-function recKey(lifecycle, condition) {
-  return lifecycle && condition && condition.length ? `${lifecycle}|${[...condition].sort().join(",")}` : null;
+function recKey(lifecycle, condition, productType) {
+  if (!lifecycle || !condition || !condition.length || !productType) return null;
+  return `${productType}|${lifecycle}|${[...condition].sort().join(",")}`;
 }
 
 // ---------- 우측: 실시간 Agent 반응 스트림 ----------
@@ -195,13 +196,13 @@ function AxisSection({ axis, selected, onToggle, defaultOpen, aiReason, aiAgentI
 }
 
 // ---------- 추천 배너 (리드 축 선택 직후 ~ 추천 완료까지) ----------
-function RecommendationBanner({ status, lifeLabel, condLabel, onRetry, onManual }) {
+function RecommendationBanner({ status, productTypeLabel, lifeLabel, condLabel, onRetry, onManual }) {
   if (status === "loading") {
     return (
       <div className="brief-rec-banner brief-rec-loading">
         <div className="thinking-dots"><span></span><span></span><span></span></div>
         <div className="brief-rec-banner-text">
-          <strong>{lifeLabel} × {condLabel}</strong> 조합을 분석해 나머지 6개 축을 추천하고 있습니다…
+          <strong>{productTypeLabel && `${productTypeLabel} · `}{lifeLabel} × {condLabel}</strong> 조합을 분석해 나머지 추천 항목을 생성하고 있습니다…
         </div>
       </div>
     );
@@ -286,9 +287,9 @@ function BriefLanding({ onLaunch }) {
   const eventTimerRef = useRef(0);
 
   // 추천 상태: idle(아직 시작 안함) | loading | done | error
-  // key는 "lifecycle|condition들" — 같은 조합에 대한 중복 호출을 막는 캐시 키 역할
+  // key는 "productType|lifecycle|condition" — 같은 조합에 대한 중복 호출을 막는 캐시 키 역할
   const [recState, setRecState] = useState(() => {
-    const k = recKey(sel.lifecycle, sel.condition);
+    const k = recKey(sel.lifecycle, sel.condition, sel.productType);
     if (k) {
       const hasRest = REC_AXES.some(a => {
         const v = sel[a];
@@ -346,26 +347,28 @@ function BriefLanding({ onLaunch }) {
 
   // ---------- AI 추천 호출 ----------
   const fetchRecommendation = async (lifecycle, condition) => {
-    const key = recKey(lifecycle, condition);
+    const key = recKey(lifecycle, condition, sel.productType);
     setRecState({ status: "loading", key, reasons: {} });
     try {
       const res = await fetch("/api/brief/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lifecycle, condition, productType: sel.productType }),
+        // 사용자가 선택한 productType을 서버에 전달하여 맞춤 추천을 받는다
+        body: JSON.stringify({ lifecycle, condition, productType: sel.productType || "" }),
       });
       if (!res.ok) throw new Error(`status ${res.status}`);
       const data = await res.json();
       const rec = data.recommendation;
-      // productType과 reg 불일치 시 클라이언트에서도 재정렬 (서버 PRODUCT_TYPE_META와 동기화)
-      if (rec.productType) {
-        const meta = PRODUCT_TYPE_META[rec.productType];
+      // 사용자가 선택한 productType 기준으로 reg 자동 보정 (AI가 productType을 바꾸지 않음)
+      const currentProductType = sel.productType;
+      if (currentProductType) {
+        const meta = PRODUCT_TYPE_META[currentProductType];
         if (meta && rec.reg !== meta.reg) rec.reg = meta.reg;
       }
 
       setSel(prev => ({
         ...prev,
-        productType: rec.productType,
+        // productType은 사용자 선택값 유지 — AI가 덮어쓰지 않음
         ingredient: rec.ingredient,
         reg: rec.reg,
         channel: rec.channel,
@@ -391,15 +394,17 @@ function BriefLanding({ onLaunch }) {
     }
   };
 
-  // 생애주기 · 건강이슈가 모두 정해지면 자동으로 추천 호출 (프리셋 경유 시엔 건너뜀)
+  // 제품군·생애주기·건강이슈가 모두 정해지면 자동으로 추천 호출 (프리셋 경유 시엔 건너뜀)
+  // productType이 없으면 추천 불필요 — 사용자가 먼저 제품군을 골라야 한다
   useEffect(() => {
     if (presetId) return;
-    const key = recKey(sel.lifecycle, sel.condition);
+    if (!sel.productType) return;          // 제품군 미선택 시 추천 안 함
+    const key = recKey(sel.lifecycle, sel.condition, sel.productType);
     if (!key) return;
     if (recState.key === key) return;
     fetchRecommendation(sel.lifecycle, sel.condition);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sel.lifecycle, sel.condition, presetId]);
+  }, [sel.productType, sel.lifecycle, sel.condition, presetId]);
 
   const toggle = (axisId, optId, isMulti) => {
     setSel(prev => {
@@ -425,7 +430,7 @@ function BriefLanding({ onLaunch }) {
     setEvents([]);
     eventTimerRef.current = 0;
     // 프리셋은 이미 8축이 확정된 시나리오이므로 추천 호출을 건너뛰고 done으로 표시
-    setRecState({ status: "done", key: recKey(p.axes.lifecycle, p.axes.condition), reasons: {} });
+    setRecState({ status: "done", key: recKey(p.axes.lifecycle, p.axes.condition, p.axes.productType), reasons: {} });
     setTimeout(() => {
       setEvents([
         { agent: "mara",  msg: `프리셋 "${p.label}" 로드 · ${p.sub}`, tone: "info", t: "0.3" },
@@ -503,14 +508,16 @@ function BriefLanding({ onLaunch }) {
     onLaunch(sel);
   };
 
+  // productType은 사용자가 직접 선택하는 리드 축
+  const productTypeAxis = window.BRIEF_AXES.find(ax => ax.id === "productType");
   const leadAxes = window.BRIEF_AXES.filter(ax => ax.id === "lifecycle" || ax.id === "condition");
-  const leadReady = !!(sel.lifecycle && sel.condition && sel.condition.length);
+  // 제품군 + 생애주기 + 건강이슈 모두 선택돼야 AI 추천 시작
+  const leadReady = !!(sel.productType && sel.lifecycle && sel.condition && sel.condition.length);
 
   const lifeLabel = leadAxes[0].options.find(o => o.id === sel.lifecycle)?.label || "";
   const condLabel = (sel.condition || []).map(id => leadAxes[1].options.find(o => o.id === id)?.label).filter(Boolean).join("·");
 
   // 제품 유형 표시용 — 브리프 선택값 기반 (AI 생성 전)
-  const productTypeAxis = window.BRIEF_AXES.find(ax => ax.id === "productType");
   const regAxis = window.BRIEF_AXES.find(ax => ax.id === "reg");
   const selectedProductTypeLabel = productTypeAxis?.options.find(o => o.id === sel.productType)?.label || "";
   const selectedProductTypeSubLabel = productTypeAxis?.options.find(o => o.id === sel.productType)?.sub || "";
@@ -557,14 +564,25 @@ function BriefLanding({ onLaunch }) {
       {/* 헤드라인 */}
       <div className="brief-hero">
         <div className="brief-hero-eyebrow mono">STAGE 00 · PROJECT BRIEF</div>
-        <h1 className="brief-hero-title">생애주기 × 건강이슈</h1>
+        <h1 className="brief-hero-title">제품군 × 생애주기 × 건강이슈</h1>
         <BriefPresets onApply={applyPreset} current={presetId} />
       </div>
 
       {/* 본체: 좌측 축 카드 + 우측 Agent 스트림 */}
       <div className="brief-workspace">
         <div className="brief-axes-col">
-          {/* 리드 축 (생애주기·건강이슈) — 좌우 배치 */}
+          {/* STEP 1: 제품군 선택 — 사용자가 직접 고름 */}
+          {productTypeAxis && (
+            <AxisSection
+              key={productTypeAxis.id}
+              axis={productTypeAxis}
+              selected={sel[productTypeAxis.id]}
+              onToggle={toggle}
+              defaultOpen={true}
+            />
+          )}
+
+          {/* STEP 2: 생애주기·건강이슈 — 제품군 선택 후 활성화 */}
           <div className="brief-lead-grid">
             {leadAxes.map((ax) => (
               <AxisSection
@@ -572,7 +590,8 @@ function BriefLanding({ onLaunch }) {
                 axis={ax}
                 selected={sel[ax.id]}
                 onToggle={toggle}
-                defaultOpen={true}
+                defaultOpen={!!sel.productType}
+                locked={!sel.productType}
               />
             ))}
           </div>
@@ -580,6 +599,7 @@ function BriefLanding({ onLaunch }) {
           {leadReady && (
             <RecommendationBanner
               status={recState.status}
+              productTypeLabel={productTypeAxis?.options.find(o => o.id === sel.productType)?.label || ""}
               lifeLabel={lifeLabel}
               condLabel={condLabel}
               onRetry={() => fetchRecommendation(sel.lifecycle, sel.condition)}
