@@ -103,24 +103,38 @@ async function generatePartA1(env: LlmEnv, brief: ConfirmedBrief) {
   return callJsonLlm(env, prompt, 700);
 }
 
-// ---------- Call A2: competitors + reviews (700t) ----------
+// ---------- Call A2: competitors (브랜드·제형·스펙·클레임·가격·채널) ----------
 async function generatePartA2(env: LlmEnv, brief: ConfirmedBrief) {
+  const ptLabel = brief.productType
+    ? ({ tea:"차류", soymilk:"두유류", rawfood:"생식", proteinbar:"프로틴바", proteinshake:"프로틴쉐이크", fsmp:"특수의료용도식품" } as Record<string,string>)[brief.productType] || brief.productType
+    : "해당 제품군";
   const prompt = `브리프: ${briefDescription(brief)}
 
-위 브리프와 동일 카테고리·타깃·건강이슈를 겨냥하는 한국 실제 경쟁제품 5개를 조사해 아래 JSON을 완성하세요.
+위 브리프 제품군(${ptLabel}) · 타깃 · 건강이슈를 겨냥하는 한국 실존 경쟁제품 5개를 조사해 JSON만 출력하세요.
 규칙:
-- brand: 실제 브랜드명 (한국어, 20자 이내, "경쟁사N" 금지, 반드시 브리프 타깃에 맞는 제품)
-- format: 제형 (액상팩·파우더·젤리·캡슐 등)
-- key: 핵심 성분·함량 1줄 (30자 이내)
-- claim: 실제 마케팅 클레임 (한국어, 30자 이내)
-- price: 24팩 박스 기준 소비자가 (원, 정수)
-- size: 1팩 용량 (예: "200ml×24")
-- channel: 주 유통채널
+- brand: 실제 브랜드명 (20자 이내, "경쟁사N" 절대 금지, 반드시 실존 제품)
+- format: 제형 (티백·파우더·RTD·바·액상팩 등 제품군에 맞게)
+- key: 핵심 성분 또는 특징 1줄 (30자 이내)
+- claim: 실제 마케팅 슬로건 (한국어, 30자 이내)
+- price: 소비자 판매가 (원, 정수, 단품 또는 박스 기준 실제가)
+- size: 용량/규격 (예: "200ml×10", "30g×20개", "1kg")
+- rating: 플랫폼 평점 1-5 (소수점 1자리)
+- reviews: 리뷰 수 (정수)
+- channel: 주 유통채널 (온라인·오프라인·약국 등)
 - evidenceStrength: 임상근거 강도 1-10
-- reviews: 긍정·부정 키워드 각 8개, t=키워드(10자 이내), w=가중치(정수)
 
-{"competitors":[{"brand":"브랜드명","format":"제형","key":"성분·함량","claim":"클레임","price":40000,"size":"용량","rating":4.2,"reviews":1000,"channel":"채널","evidenceStrength":6.5},{"brand":"브랜드명2","format":"제형","key":"성분·함량","claim":"클레임","price":38000,"size":"용량","rating":4.0,"reviews":2000,"channel":"채널","evidenceStrength":7.0},{"brand":"브랜드명3","format":"제형","key":"성분·함량","claim":"클레임","price":45000,"size":"용량","rating":4.1,"reviews":800,"channel":"채널","evidenceStrength":6.8},{"brand":"브랜드명4","format":"제형","key":"성분·함량","claim":"클레임","price":35000,"size":"용량","rating":3.9,"reviews":500,"channel":"채널","evidenceStrength":5.5},{"brand":"브랜드명5","format":"제형","key":"성분·함량","claim":"클레임","price":50000,"size":"용량","rating":4.3,"reviews":1500,"channel":"채널","evidenceStrength":7.2}],"reviews":{"positive":[{"t":"키워드","w":40},{"t":"키워드","w":35},{"t":"키워드","w":30},{"t":"키워드","w":28},{"t":"키워드","w":25},{"t":"키워드","w":22},{"t":"키워드","w":20},{"t":"키워드","w":18}],"negative":[{"t":"키워드","w":38},{"t":"키워드","w":32},{"t":"키워드","w":28},{"t":"키워드","w":25},{"t":"키워드","w":22},{"t":"키워드","w":20},{"t":"키워드","w":18},{"t":"키워드","w":15}]}}`;
-  return callJsonLlm(env, prompt, 700);
+{"competitors":[{"brand":"실제브랜드1","format":"제형","key":"핵심성분","claim":"클레임","price":35000,"size":"규격","rating":4.2,"reviews":1200,"channel":"온라인","evidenceStrength":6.5},{"brand":"실제브랜드2","format":"제형","key":"핵심성분","claim":"클레임","price":28000,"size":"규격","rating":4.0,"reviews":800,"channel":"온라인","evidenceStrength":5.8},{"brand":"실제브랜드3","format":"제형","key":"핵심성분","claim":"클레임","price":42000,"size":"규격","rating":4.3,"reviews":2000,"channel":"약국·H&B","evidenceStrength":7.0},{"brand":"실제브랜드4","format":"제형","key":"핵심성분","claim":"클레임","price":32000,"size":"규격","rating":3.9,"reviews":500,"channel":"오프라인","evidenceStrength":5.5},{"brand":"실제브랜드5","format":"제형","key":"핵심성분","claim":"클레임","price":55000,"size":"규격","rating":4.5,"reviews":3000,"channel":"온라인D2C","evidenceStrength":7.5}]}`;
+  return callJsonLlm(env, prompt, 800);
+}
+
+// ---------- Call A2b: reviews 키워드 (competitors와 분리하여 안정성 향상) ----------
+async function generatePartA2b(env: LlmEnv, brief: ConfirmedBrief) {
+  const prompt = `브리프: ${briefDescription(brief)}
+
+이 제품군·타깃·건강이슈 카테고리의 소비자 리뷰에서 자주 나타나는 긍정/부정 키워드 각 8개를 JSON으로만 출력하세요.
+
+{"positive":[{"t":"키워드","w":40},{"t":"키워드","w":35},{"t":"키워드","w":30},{"t":"키워드","w":28},{"t":"키워드","w":25},{"t":"키워드","w":22},{"t":"키워드","w":20},{"t":"키워드","w":18}],"negative":[{"t":"키워드","w":38},{"t":"키워드","w":32},{"t":"키워드","w":28},{"t":"키워드","w":25},{"t":"키워드","w":22},{"t":"키워드","w":20},{"t":"키워드","w":18},{"t":"키워드","w":15}]}`;
+  return callJsonLlm(env, prompt, 350);
 }
 
 // ---------- Call A3: concept (LDA topics + painPoints + pod + conclusion) (600t) ----------
@@ -215,10 +229,11 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
       : null;
 
   const a1Err: string[] = [];
-  const [a0, a1, a2, a3, b1, b2, c, naverInsights] = await Promise.all([
+  const [a0, a1, a2, a2b, a3, b1, b2, c, naverInsights] = await Promise.all([
     generatePartA0(env, brief).catch((e) => { a1Err.push(`A0:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartA1(env, brief).catch((e) => { a1Err.push(`A1:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartA2(env, brief).catch((e) => { a1Err.push(`A2:${e?.message?.slice(0,100)}`); return {}; }),
+    generatePartA2b(env, brief).catch((e) => { a1Err.push(`A2b:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartA3(env, brief).catch((e) => { a1Err.push(`A3:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartB1(env, brief).catch((e) => { a1Err.push(`B1:${e?.message?.slice(0,100)}`); return {}; }),
     generatePartB2(env, brief).catch((e) => { a1Err.push(`B2:${e?.message?.slice(0,100)}`); return {}; }),
@@ -227,8 +242,8 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
       ? fetchConsumerInsights(naverEnv, env, brief.condition).catch(() => null)
       : Promise.resolve(null),
   ]);
-  // A1 + A2(competitors+reviews) + A3(concept) 병합
-  const a = { ...a1, ...a2, concept: (a3 as any).concept || undefined };
+  // A1 + A2(competitors) + A2b(reviews) + A3(concept) 병합
+  const a = { ...a1, ...a2, reviews: a2b, concept: (a3 as any).concept || undefined };
   // B1(ingredients+nutritionTarget) + B2(papers+nutritionCompare) 병합
   const b = {
     target: (b1.ingredients || b1.nutritionTarget)
@@ -284,7 +299,7 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
       },
     },
     competitors: Array.isArray(a.competitors) && a.competitors.length ? a.competitors : FALLBACK_COMPETITORS,
-    // 네이버 실시간 데이터 우선 적용, 없으면 LLM 생성, 그것도 없으면 fallback
+    // reviews: 네이버 실시간 > A2b(LLM 분리 호출) > a.reviews > FALLBACK
     reviews: naverInsights?.reviews ?? (a.reviews?.positive && a.reviews?.negative ? a.reviews : FALLBACK_REVIEWS),
     concept: naverInsights
       ? {
