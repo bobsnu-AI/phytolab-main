@@ -181,7 +181,7 @@ const Step3Formula = () => {
         <div className="panel formula-panel">
           <div className="panel-header">
             <div>
-              <div className="panel-title">원료 배합표 · per pack (200ml)</div>
+              <div className="panel-title">원료 배합표 · per {format}</div>
               <div className="panel-sub"><span className="mono">200g</span> · 정제수 자동</div>
             </div>
             <button className="btn-ghost" onClick={resetIngs}>초기값 복원 ↺</button>

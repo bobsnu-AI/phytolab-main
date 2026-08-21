@@ -28,18 +28,36 @@ const Step2Target = () => {
   // 브리프별 동적 라벨 생성
   const isGenerated = snap.generated;
   const productTarget = product?.target || "타깃 수요층";
-  const category = product?.subcategory || product?.category || "기능성 식품";
-  const regClass = product?.regClass || "해당 카테고리";
+
+  // productType 기반 규제 라벨 (LLM이 임의 생성한 regClass 대신 사용)
+  const PRODUCT_TYPE_REG_LABEL = {
+    tea:          "일반식품 · 식품공전 기준",
+    soymilk:      "두유류 · 식품공전 기준",
+    rawfood:      "생식류 · 식품공전 기준",
+    proteinbar:   "과자류 · 단백질 함량 기준",
+    proteinshake: "건강기능식품 또는 일반식품 단백질 보충제",
+    fsmp:         "특수의료용도식품 · FSMP 표준제조기준",
+  };
+  const PRODUCT_TYPE_GUIDELINE = {
+    tea:          "식품공전 · 차류 기준",
+    soymilk:      "식품공전 · 두유류 기준",
+    rawfood:      "식품공전 · 생식류 기준",
+    proteinbar:   "식품공전 · 영양성분 표시 기준",
+    proteinshake: "건강기능식품법 또는 식품공전",
+    fsmp:         "KDA · ADA · ESPEN · 식약처 고시",
+  };
+  const pt = product?.productType || "";
+  const regLabel = PRODUCT_TYPE_REG_LABEL[pt] || product?.regClass || "식품공전 기준";
+  const guidelineLabel = PRODUCT_TYPE_GUIDELINE[pt] || (product?.regClass ? product.regClass : "해당 가이드라인");
+
   // 패널 타이틀: 생성된 데이터면 브리프 기반, 아니면 기존 GLUCARE-M 텍스트
   const nutritionPanelTitle = isGenerated
-    ? `${productTarget} 맞춤 영양 목표치 · ${regClass}`
+    ? `${productTarget} 맞춤 영양 목표치 · ${regLabel}`
     : "FSMP 영양 목표치 · 당뇨환자용 표준제조기준";
   const nutritionPanelSub = isGenerated
-    ? `${category} 브리프 기반 AI 생성 · ${product?.positioningClaim || "핵심 기능성 기준"}`
+    ? `${regLabel} 브리프 기반 AI 생성 · ${product?.positioningClaim || "핵심 기능성 기준"}`
     : "표준제조기준 + KDA 2024";
-  const guidelineBadge = isGenerated
-    ? (product?.regClass ? product.regClass : "해당 가이드라인")
-    : "KDA · ADA · ESPEN";
+  const guidelineBadge = isGenerated ? guidelineLabel : "KDA · ADA · ESPEN";
   const evidenceStrength = product?.targetEvidenceStrength
     ? `${product.targetEvidenceStrength.toFixed(1)} / 10`
     : "A · 91.2%";

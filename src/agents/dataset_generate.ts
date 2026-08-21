@@ -147,14 +147,97 @@ async function generatePartA3(env: LlmEnv, brief: ConfirmedBrief) {
   return callJsonLlm(env, prompt, 600);
 }
 
-// ---------- Call B1: target.ingredients + nutritionTarget (핵심 원료·영양 목표) ----------
+// ---------- 제품군별 원료 가이드 (B1/C 프롬프트에 주입) ----------
+function getProductTypeIngredientGuide(productType: string): { b1Guide: string; b1Example: string; cGuide: string; cExample: string } {
+  switch (productType) {
+    case "rawfood":
+      return {
+        b1Guide: `생식 제품이므로 실제 동결건조·냉압착·분말화한 채소·과일·곡물·해조류·씨앗류 원물 원료만 사용하세요.
+합성 분리단백, MCT오일, 이소말툴로스, 잔탄검, 수크랄로스 등 가공 첨가물 금지.
+예시 원료: 동결건조 케일분말, 동결건조 브로콜리분말, 현미분말, 귀리분말, 아마씨분말, 비트분말, 생강분말, 보리새싹분말, 스피루리나, 클로렐라, 효소혼합분말, 유산균분말`,
+        b1Example: `{"ingredients":[{"name":"동결건조 케일분말(식이섬유)","evidence":"B","dose":"5g/일","cost":4,"note":"항산화·엽산 풍부, 관찰연구 근거"},{"name":"현미분말(탄수)","evidence":"B","dose":"20g/일","cost":1,"note":"저GI 복합탄수, 에너지 지속 공급"},{"name":"귀리분말(식이섬유)","evidence":"A","dose":"10g/일","cost":2,"note":"β-글루칸 콜레스테롤 저하 RCT"},{"name":"아마씨분말(오메가3)","evidence":"B","dose":"5g/일","cost":3,"note":"알파리놀렌산 심혈관 보호"},{"name":"스피루리나(단백)","evidence":"B","dose":"3g/일","cost":8,"note":"완전단백·철분·클로로필"},{"name":"생강분말(기능성)","evidence":"B","dose":"1g/일","cost":2,"note":"항염증·소화 개선 RCT"}],"nutritionTarget":{"calories":{"value":120,"unit":"kcal/1회","note":"저열량 원물식"},"carbRatio":{"value":60,"unit":"%en","note":"복합탄수 중심"},"proteinRatio":{"value":15,"unit":"%en","note":"식물성 단백"},"fatRatio":{"value":25,"unit":"%en","note":"불포화지방"},"giIndex":{"value":40,"unit":"GI","note":"저GI 원물"},"sodium":{"value":80,"unit":"mg","note":"무첨가"}}}`,
+        cGuide: `생식 파우더 제품 — 동결건조·분말 원물 원료만 사용.
+- "담체" role은 정제수 대신 귀리분말 또는 현미분말 사용 가능 (주 원료이므로)
+- amount 합계: 25-50g (1회 제공량 기준, 물에 타서 섭취)
+- 합성 첨가물(이소말툴로스·MCT오일·잔탄검·수크랄로스) 절대 금지
+- 허용 원료: 동결건조 채소분말, 곡물분말, 씨앗분말, 해조류분말, 효소, 유산균, 천연 스테비아`,
+        cExample: `{"formula":{"ingredients":[{"id":"kale","name":"동결건조케일분말","amount":5,"unit":"g","role":"미량","price":80,"moq":5,"yieldPct":95},{"id":"broc","name":"동결건조브로콜리분말","amount":4,"unit":"g","role":"미량","price":70,"moq":5,"yieldPct":95},{"id":"rice","name":"현미분말","amount":10,"unit":"g","role":"탄수","price":3,"moq":25,"yieldPct":99},{"id":"oat","name":"귀리분말","amount":8,"unit":"g","role":"탄수","price":4,"moq":20,"yieldPct":99},{"id":"flax","name":"아마씨분말","amount":3,"unit":"g","role":"지방","price":12,"moq":10,"yieldPct":98},{"id":"spiru","name":"스피루리나분말","amount":2,"unit":"g","role":"단백","price":50,"moq":3,"yieldPct":97},{"id":"ginger","name":"생강분말","amount":1,"unit":"g","role":"관능","price":15,"moq":5,"yieldPct":98},{"id":"stv","name":"천연스테비아","amount":0.3,"unit":"g","role":"감미","price":200,"moq":1,"yieldPct":100},{"id":"bcgrass","name":"보리새싹분말","amount":3,"unit":"g","role":"미량","price":60,"moq":5,"yieldPct":96},{"id":"enzyme","name":"효소혼합분말","amount":0.5,"unit":"g","role":"안정","price":300,"moq":1,"yieldPct":95}],"flavors":["플레인","그린베리","생강레몬"],"formats":["스틱파우더 30g","파우치 500g"],"roleTargets":{"carb":18,"protein":4,"fat":3,"micro":15},"giIngredientId":"oat","efficacyLabels":{"carb":"저GI 복합탄수","protein":"식물성 단백","fat":"오메가3 지방","micro":"식물영양소"},"efficacyTargets":{"carb":"GI 40 이하 원물 탄수","protein":"스피루리나 완전단백","fat":"아마씨 알파리놀렌산","micro":"케일·브로콜리 파이토케미컬"}},"cost":{"packaging":{"liquidPack":0,"outerBox":150,"shipperBox":100,"label":60,"sterilization":0},"overhead":{"labor":300,"utility":150,"qa":250,"depreciation":150,"logistics":300},"target":{"wholesaleMarkup":1.7,"retailMarkup":2.6,"msrp":38000}}}`,
+      };
+
+    case "tea":
+      return {
+        b1Guide: `차류(티백·침출차·분말차·RTD) 제품이므로 실제 차 원료와 식물성 추출물만 사용하세요.
+합성 단백, MCT오일, 이소말툴로스 등 영양 보충제 성격의 원료 금지.
+예시 원료: 녹차분말/추출물, 홍차분말, 루이보스, 캐모마일, 라벤더, 히비스커스, 생강추출물, 계피추출물, 발효홍삼농축액, 은행잎추출물`,
+        b1Example: `{"ingredients":[{"name":"녹차추출물(카테킨)","evidence":"A","dose":"400mg/일","cost":5,"note":"EGCG 항산화·항염증 RCT"},{"name":"캐모마일추출물(진정)","evidence":"B","dose":"300mg/일","cost":4,"note":"아피게닌 수면·이완 임상근거"},{"name":"루이보스추출물(항산화)","evidence":"B","dose":"200mg/일","cost":3,"note":"아스팔라틴 혈당 조절"},{"name":"생강추출물(소화)","evidence":"A","dose":"250mg/일","cost":3,"note":"진저롤 소화 개선·항염 RCT"},{"name":"계피추출물(혈당)","evidence":"B","dose":"200mg/일","cost":4,"note":"혈당 지수 개선 메타분석"},{"name":"히비스커스추출물(항산화)","evidence":"B","dose":"150mg/일","cost":4,"note":"안토시아닌 혈압 개선"}],"nutritionTarget":{"calories":{"value":10,"unit":"kcal/팩","note":"무/저열량"},"carbRatio":{"value":80,"unit":"%en","note":"천연 당류"},"proteinRatio":{"value":5,"unit":"%en","note":"미량"},"fatRatio":{"value":15,"unit":"%en","note":"미량"},"giIndex":{"value":20,"unit":"GI","note":"저당"},"sodium":{"value":5,"unit":"mg","note":"무첨가"}}}`,
+        cGuide: `차류 제품 — 식물성 추출물·분말 원료 사용.
+- 1회 제공량: 티백 2-3g / RTD 액상 200-250ml / 분말 3-5g
+- amount 합계: 티백 2-4g, 분말 3-6g, RTD는 ml 기준
+- 합성 단백·지방·인공감미료 금지, 천연 꿀분말·스테비아는 허용`,
+        cExample: `{"formula":{"ingredients":[{"id":"gtea","name":"녹차분말","amount":1.5,"unit":"g","role":"관능","price":30,"moq":10,"yieldPct":99},{"id":"cham","name":"캐모마일분말","amount":0.8,"unit":"g","role":"관능","price":40,"moq":5,"yieldPct":99},{"id":"roos","name":"루이보스분말","amount":0.5,"unit":"g","role":"관능","price":35,"moq":5,"yieldPct":99},{"id":"ging","name":"생강추출물분말","amount":0.2,"unit":"g","role":"미량","price":80,"moq":2,"yieldPct":97},{"id":"cin","name":"계피분말","amount":0.1,"unit":"g","role":"미량","price":20,"moq":5,"yieldPct":99},{"id":"stv","name":"스테비아","amount":0.05,"unit":"g","role":"감미","price":200,"moq":1,"yieldPct":100}],"flavors":["플레인그린","생강레몬","캐모마일"],"formats":["티백 2g×30입","스틱분말 3g×20포","RTD 250ml"],"roleTargets":{"carb":0.5,"protein":0.1,"fat":0.05,"micro":0.3},"giIngredientId":"cin","efficacyLabels":{"carb":"천연 탄수화물","protein":"미량 단백","fat":"미량 지방","micro":"식물 추출물"},"efficacyTargets":{"carb":"자연 감미","protein":"미량","fat":"미량","micro":"카테킨·아피게닌·진저롤"}},"cost":{"packaging":{"liquidPack":0,"outerBox":120,"shipperBox":80,"label":50,"sterilization":0},"overhead":{"labor":200,"utility":100,"qa":150,"depreciation":100,"logistics":200},"target":{"wholesaleMarkup":1.8,"retailMarkup":2.8,"msrp":18000}}}`,
+      };
+
+    case "soymilk":
+      return {
+        b1Guide: `두유류(두유·곡물음료·식물성 밀크) 제품 — 대두·식물성 원료 중심.
+합성 분리단백(WPI/WPC 유청) 금지, 대두분리단백(SPI)·완두단백은 허용.
+예시 원료: 대두분리단백(SPI), 귀리추출물, 아몬드분말, 현미추출액, 코코넛밀크분말, 칼슘(탄산칼슘), 비타민D, 비타민B12, 이눌린(프리바이오틱)`,
+        b1Example: `{"ingredients":[{"name":"대두분리단백SPI(단백)","evidence":"A","dose":"8g/팩","cost":5,"note":"이소플라본·완전단백 RCT"},{"name":"이눌린(프리바이오틱)","evidence":"A","dose":"5g/팩","note":"장내균총 개선 RCT","cost":4},{"name":"귀리추출물(식이섬유)","evidence":"A","dose":"3g/팩","cost":3,"note":"β-글루칸 콜레스테롤 저하"},{"name":"탄산칼슘(칼슘)","evidence":"A","dose":"300mg/팩","cost":2,"note":"골밀도 유지 RCT"},{"name":"비타민D3(미량)","evidence":"A","dose":"10μg/팩","cost":3,"note":"칼슘 흡수 촉진"},{"name":"비타민B12(미량)","evidence":"A","dose":"2.4μg/팩","cost":5,"note":"식물성 식단 보완 필수"}],"nutritionTarget":{"calories":{"value":130,"unit":"kcal/팩","note":"두유류 표준"},"carbRatio":{"value":45,"unit":"%en","note":"천연 탄수"},"proteinRatio":{"value":25,"unit":"%en","note":"식물성 단백"},"fatRatio":{"value":30,"unit":"%en","note":"불포화지방"},"giIndex":{"value":30,"unit":"GI","note":"저GI"},"sodium":{"value":90,"unit":"mg","note":"저나트륨"}}}`,
+        cGuide: `두유류 액상 제품 — 200ml 1팩 기준, 식물성 원료 사용.
+- 담체: 정제수(주 담체) + 귀리추출액 병용 가능
+- 유청단백(WPI/WPC) 금지, 대두분리단백(SPI) 사용`,
+        cExample: `{"formula":{"ingredients":[{"id":"spi","name":"대두분리단백SPI","amount":8,"unit":"g","role":"단백","price":6,"moq":25,"yieldPct":98},{"id":"oat","name":"귀리추출물","amount":5,"unit":"g","role":"탄수","price":4,"moq":20,"yieldPct":99},{"id":"inul","name":"이눌린","amount":3,"unit":"g","role":"안정","price":8,"moq":10,"yieldPct":99},{"id":"caco3","name":"탄산칼슘","amount":0.4,"unit":"g","role":"미량","price":2,"moq":10,"yieldPct":100},{"id":"vitd","name":"비타민D3분말","amount":0.002,"unit":"g","role":"미량","price":800,"moq":0.1,"yieldPct":95},{"id":"vitb12","name":"비타민B12분말","amount":0.001,"unit":"g","role":"미량","price":1200,"moq":0.05,"yieldPct":95},{"id":"vanext","name":"바닐라천연향","amount":0.3,"unit":"g","role":"관능","price":100,"moq":1,"yieldPct":100},{"id":"stv","name":"스테비아","amount":0.1,"unit":"g","role":"감미","price":200,"moq":1,"yieldPct":100},{"id":"wtr","name":"정제수","amount":180,"unit":"g","role":"담체","price":0.01,"moq":1000,"yieldPct":100}],"flavors":["오리지널","검은콩","귀리"],"formats":["190ml팩","1000ml","파우치"],"roleTargets":{"carb":15,"protein":8,"fat":4,"micro":0.4},"giIngredientId":"oat","efficacyLabels":{"carb":"귀리 식이섬유","protein":"대두 단백","fat":"불포화지방","micro":"칼슘·비타민D"},"efficacyTargets":{"carb":"β-글루칸 함유","protein":"이소플라본 포함","fat":"리놀레산 중심","micro":"칼슘 300mg/팩"}},"cost":{"packaging":{"liquidPack":200,"outerBox":160,"shipperBox":110,"label":70,"sterilization":180},"overhead":{"labor":350,"utility":200,"qa":250,"depreciation":180,"logistics":280},"target":{"wholesaleMarkup":1.6,"retailMarkup":2.4,"msrp":32000}}}`,
+      };
+
+    case "proteinbar":
+      return {
+        b1Guide: `프로틴바(고단백 바·에너지바) 제품 — 고단백·저당 고형 식품.
+예시 원료: 유청단백분리물(WPI), 귀리압착플레이크, 아몬드분쇄물, 다크초콜릿코팅, 이눌린(식이섬유), 해바라기씨, 아가베시럽(천연감미), 코코아분말`,
+        b1Example: `{"ingredients":[{"name":"유청단백분리물WPI(단백)","evidence":"A","dose":"20g/바","cost":12,"note":"BCAA 풍부·근합성 촉진 RCT"},{"name":"귀리압착플레이크(탄수)","evidence":"A","dose":"15g/바","cost":2,"note":"저GI β-글루칸"},{"name":"이눌린(식이섬유)","evidence":"A","dose":"5g/바","cost":5,"note":"프리바이오틱 장건강"},{"name":"아몬드분쇄물(지방)","evidence":"B","dose":"8g/바","cost":8,"note":"단일불포화지방·비타민E"},{"name":"류신(아미노산)","evidence":"A","dose":"3g/바","cost":20,"note":"근단백합성 트리거 임계량"},{"name":"비타민D3(미량)","evidence":"A","dose":"10μg/바","cost":3,"note":"근기능·면역 지원"}],"nutritionTarget":{"calories":{"value":220,"unit":"kcal/바","note":"고단백 에너지바"},"carbRatio":{"value":35,"unit":"%en","note":"저당 탄수"},"proteinRatio":{"value":40,"unit":"%en","note":"고단백 목표"},"fatRatio":{"value":25,"unit":"%en","note":"건강지방"},"giIndex":{"value":38,"unit":"GI","note":"저GI"},"sodium":{"value":120,"unit":"mg","note":"저나트륨"}}}`,
+        cGuide: `프로틴바 고형 제품 — 1바 45-60g 기준.
+- "담체" role은 귀리플레이크 또는 아몬드버터 사용 (정제수 불필요)
+- amount 합계: 45-60g
+- 합성 색소·아스파탐 금지`,
+        cExample: `{"formula":{"ingredients":[{"id":"wpi","name":"유청단백분리물WPI","amount":20,"unit":"g","role":"단백","price":12,"moq":25,"yieldPct":98},{"id":"oatf","name":"귀리압착플레이크","amount":12,"unit":"g","role":"탄수","price":2,"moq":50,"yieldPct":100},{"id":"almond","name":"아몬드분쇄물","amount":8,"unit":"g","role":"지방","price":8,"moq":10,"yieldPct":99},{"id":"inul","name":"이눌린","amount":4,"unit":"g","role":"안정","price":5,"moq":10,"yieldPct":99},{"id":"leu","name":"류신","amount":2,"unit":"g","role":"미량","price":25,"moq":5,"yieldPct":100},{"id":"cacao","name":"코코아분말","amount":3,"unit":"g","role":"관능","price":10,"moq":5,"yieldPct":99},{"id":"agave","name":"아가베시럽분말","amount":3,"unit":"g","role":"감미","price":15,"moq":5,"yieldPct":99},{"id":"almbase","name":"아몬드버터","amount":5,"unit":"g","role":"담체","price":10,"moq":10,"yieldPct":99}],"flavors":["초코","바닐라아몬드","땅콩버터"],"formats":["45g 바","60g 바"],"roleTargets":{"carb":15,"protein":20,"fat":8,"micro":2},"giIngredientId":"oatf","efficacyLabels":{"carb":"저GI 귀리","protein":"WPI 고순도","fat":"아몬드 단일불포화","micro":"류신·비타민D"},"efficacyTargets":{"carb":"GI 38 이하","protein":"BCAA 함량 5g+","fat":"오메가9 중심","micro":"류신 3g 근합성 임계"}},"cost":{"packaging":{"liquidPack":0,"outerBox":130,"shipperBox":90,"label":60,"sterilization":0},"overhead":{"labor":400,"utility":200,"qa":280,"depreciation":200,"logistics":320},"target":{"wholesaleMarkup":1.7,"retailMarkup":2.5,"msrp":42000}}}`,
+      };
+
+    case "proteinshake":
+      return {
+        b1Guide: `프로틴쉐이크(WPI·WPC·식물성 단백 분말) 제품 — 고단백 파우더/RTD.
+예시 원료: 유청단백분리물(WPI), 완두단백분리물(PPI), 이소말툴로스(저GI 탄수), MCT오일분말, BCAA믹스, 류신, 크레아틴, 비타민D3, 마그네슘`,
+        b1Example: `{"ingredients":[{"name":"유청단백분리물WPI(단백)","evidence":"A","dose":"25g/회","cost":12,"note":"근합성 최우선 단백 RCT"},{"name":"이소말툴로스(저GI탄수)","evidence":"A","dose":"15g/회","cost":5,"note":"혈당 완만 상승 임상"},{"name":"MCT오일분말(에너지)","evidence":"B","dose":"5g/회","cost":8,"note":"빠른 에너지 산화"},{"name":"류신(아미노산)","evidence":"A","dose":"3g/회","cost":25,"note":"mTOR 활성·근합성 트리거"},{"name":"크레아틴모노(근지구력)","evidence":"A","dose":"3g/회","cost":4,"note":"운동능력 향상 메타분석"},{"name":"비타민D3(미량)","evidence":"A","dose":"10μg/회","cost":3,"note":"근기능·테스토스테론 지원"}],"nutritionTarget":{"calories":{"value":180,"unit":"kcal/회","note":"스포츠 영양"},"carbRatio":{"value":30,"unit":"%en","note":"저GI 탄수"},"proteinRatio":{"value":55,"unit":"%en","note":"고단백"},"fatRatio":{"value":15,"unit":"%en","note":"MCT"},"giIndex":{"value":32,"unit":"GI","note":"이소말툴로스 기반"},"sodium":{"value":150,"unit":"mg","note":"전해질 보충"}}}`,
+        cGuide: `프로틴쉐이크 파우더 — 1스쿱 30-40g 기준.
+- 담체: 정제수(RTD) 또는 없음(파우더)
+- amount 합계: 파우더 30-40g`,
+        cExample: `{"formula":{"ingredients":[{"id":"wpi","name":"유청단백분리물WPI","amount":25,"unit":"g","role":"단백","price":12,"moq":25,"yieldPct":98},{"id":"iso","name":"이소말툴로스","amount":8,"unit":"g","role":"탄수","price":5,"moq":50,"yieldPct":99},{"id":"mct","name":"MCT오일분말","amount":3,"unit":"g","role":"지방","price":8,"moq":10,"yieldPct":99},{"id":"leu","name":"류신","amount":2,"unit":"g","role":"미량","price":25,"moq":5,"yieldPct":100},{"id":"crt","name":"크레아틴모노하이드레이트","amount":3,"unit":"g","role":"미량","price":4,"moq":25,"yieldPct":100},{"id":"vitd","name":"비타민D3분말","amount":0.002,"unit":"g","role":"미량","price":800,"moq":0.1,"yieldPct":95},{"id":"vanf","name":"바닐라향","amount":0.5,"unit":"g","role":"관능","price":80,"moq":2,"yieldPct":100},{"id":"stv","name":"스테비아","amount":0.1,"unit":"g","role":"감미","price":200,"moq":1,"yieldPct":100}],"flavors":["초코","바닐라","딸기","무향"],"formats":["스쿱파우더 900g","RTD 250ml"],"roleTargets":{"carb":8,"protein":25,"fat":3,"micro":5},"giIngredientId":"iso","efficacyLabels":{"carb":"저GI 이소말툴로스","protein":"WPI 순도 90%+","fat":"MCT 에너지","micro":"류신·크레아틴·비타민D"},"efficacyTargets":{"carb":"GI 32 혈당 안정","protein":"BCAA 6g+ 근합성","fat":"MCT 빠른 산화","micro":"류신 3g mTOR 활성"}},"cost":{"packaging":{"liquidPack":0,"outerBox":200,"shipperBox":140,"label":80,"sterilization":0},"overhead":{"labor":350,"utility":180,"qa":280,"depreciation":180,"logistics":300},"target":{"wholesaleMarkup":1.6,"retailMarkup":2.4,"msrp":55000}}}`,
+      };
+
+    case "fsmp":
+    default:
+      return {
+        b1Guide: `특수의료용도식품(FSMP) 또는 기능성 식품 — 임상 근거 기반 원료 사용.
+예시 원료: 유청단백분리물(WPI), 이소말툴로스, MCT오일, 비타민D3, 아연, 셀레늄, 오메가3(EPA/DHA)`,
+        b1Example: `{"ingredients":[{"name":"유청단백분리물WPI(단백)","evidence":"A","dose":"20g/팩","cost":12,"note":"근감소 예방 RCT"},{"name":"이소말툴로스(저GI탄수)","evidence":"A","dose":"15g/팩","cost":5,"note":"혈당 안정 임상"},{"name":"MCT오일(에너지)","evidence":"B","dose":"5g/팩","cost":8,"note":"빠른 에너지 공급"},{"name":"비타민D3(면역)","evidence":"A","dose":"15μg/팩","cost":3,"note":"면역·근기능 RCT"},{"name":"아연(미량)","evidence":"A","dose":"8mg/팩","cost":4,"note":"면역·상처 치유"},{"name":"셀레늄(항산화)","evidence":"B","dose":"55μg/팩","cost":5,"note":"항산화·갑상선 기능"}],"nutritionTarget":{"calories":{"value":200,"unit":"kcal/팩","note":"FSMP 표준"},"carbRatio":{"value":45,"unit":"%en","note":"저GI"},"proteinRatio":{"value":22,"unit":"%en","note":"고단백"},"fatRatio":{"value":33,"unit":"%en","note":"MCT포함"},"giIndex":{"value":45,"unit":"GI","note":"저GI"},"sodium":{"value":150,"unit":"mg","note":"제한"}}}`,
+        cGuide: `FSMP 또는 기능성 식품 액상 — 200ml 1팩 기준.
+- 담체: 정제수 필수`,
+        cExample: `{"formula":{"ingredients":[{"id":"wpi","name":"유청단백분리물WPI","amount":20,"unit":"g","role":"단백","price":12,"moq":25,"yieldPct":98},{"id":"iso","name":"이소말툴로스","amount":15,"unit":"g","role":"탄수","price":5,"moq":50,"yieldPct":99},{"id":"mct","name":"MCT오일","amount":5,"unit":"g","role":"지방","price":8,"moq":20,"yieldPct":99},{"id":"vitd","name":"비타민D3분말","amount":0.002,"unit":"g","role":"미량","price":800,"moq":0.1,"yieldPct":95},{"id":"zinc","name":"아연(글루콘산아연)","amount":0.06,"unit":"g","role":"미량","price":50,"moq":0.5,"yieldPct":98},{"id":"xgm","name":"잔탄검","amount":0.3,"unit":"g","role":"안정","price":15,"moq":5,"yieldPct":99},{"id":"vanf","name":"바닐라향","amount":0.5,"unit":"g","role":"관능","price":80,"moq":2,"yieldPct":100},{"id":"suc","name":"수크랄로스","amount":0.02,"unit":"g","role":"감미","price":500,"moq":0.5,"yieldPct":100},{"id":"wtr","name":"정제수","amount":160,"unit":"g","role":"담체","price":0.01,"moq":1000,"yieldPct":100}],"flavors":["바닐라","무향","딸기"],"formats":["액상팩 200ml"],"roleTargets":{"carb":15,"protein":20,"fat":5,"micro":0.1},"giIngredientId":"iso","efficacyLabels":{"carb":"저GI 탄수","protein":"근육 단백","fat":"MCT 에너지","micro":"비타민·미네랄"},"efficacyTargets":{"carb":"GI 45 이하","protein":"BCAA 포함","fat":"MCT 빠른 산화","micro":"비타민D 15μg"}},"cost":{"packaging":{"liquidPack":250,"outerBox":180,"shipperBox":120,"label":80,"sterilization":200},"overhead":{"labor":400,"utility":250,"qa":300,"depreciation":200,"logistics":350},"target":{"wholesaleMarkup":1.6,"retailMarkup":2.4,"msrp":45000}}}`,
+      };
+  }
+}
+
+// ---------- Call B1: target.ingredients + nutritionTarget ----------
 async function generatePartB1(env: LlmEnv, brief: ConfirmedBrief) {
+  const guide = getProductTypeIngredientGuide(brief.productType || "fsmp");
   const prompt = `브리프: ${briefDescription(brief)}
 
-기능성 원료 6개와 영양 목표치를 아래 스키마로 채워 JSON 하나만 출력하세요.
+아래 제품군 원료 가이드를 엄격히 따라 기능성 원료 6개와 영양 목표치를 JSON으로만 출력하세요.
 
-{"ingredients":[{"name":"원료1(역할)","evidence":"A","dose":"1일량","cost":3,"note":"임상근거 1줄"},{"name":"원료2(역할)","evidence":"B","dose":"1일량","cost":2,"note":"임상근거 1줄"},{"name":"원료3(역할)","evidence":"A","dose":"1일량","cost":4,"note":"임상근거 1줄"},{"name":"원료4(역할)","evidence":"B","dose":"1일량","cost":3,"note":"임상근거 1줄"},{"name":"원료5(역할)","evidence":"C","dose":"1일량","cost":2,"note":"임상근거 1줄"},{"name":"원료6(역할)","evidence":"A","dose":"1일량","cost":5,"note":"임상근거 1줄"}],"nutritionTarget":{"calories":{"value":200,"unit":"kcal/팩","note":"설명"},"carbRatio":{"value":40,"unit":"%en","note":"설명"},"proteinRatio":{"value":30,"unit":"%en","note":"설명"},"fatRatio":{"value":30,"unit":"%en","note":"설명"},"giIndex":{"value":45,"unit":"GI","note":"설명"},"sodium":{"value":150,"unit":"mg","note":"설명"}}}`;
-  return callJsonLlm(env, prompt, 850);
+[제품군 원료 가이드]
+${guide.b1Guide}
+
+[출력 스키마 예시 — 실제 브리프 조건에 맞는 원료로 교체]
+${guide.b1Example}`;
+  return callJsonLlm(env, prompt, 900);
 }
 
 // ---------- Call B2: papers(×5) + nutritionCompare(×6) ----------
@@ -169,17 +252,23 @@ async function generatePartB2(env: LlmEnv, brief: ConfirmedBrief) {
 
 // ---------- Call C: formula ingredients + cost ----------
 async function generatePartC(env: LlmEnv, brief: ConfirmedBrief) {
+  const guide = getProductTypeIngredientGuide(brief.productType || "fsmp");
   const prompt = `브리프: ${briefDescription(brief)}
 
-배합 원료(10-12개)와 원가 구조를 아래 스키마로 채워 JSON 하나만 출력하세요.
-규칙:
-- id: 3-5자 영문소문자 고유코드 (중복 금지)
-- role: 반드시 아래 7개 중 하나만 사용 — "탄수" | "단백" | "지방" | "미량" | "안정" | "감미" | "관능" | "담체"
-  (영문/혼용 절대 금지: protein→단백, fat→지방, carb→탄수, micro→미량, stabilizer→안정, sweetener→감미, flavor→관능, carrier→담체)
-- "담체" role 1개 필수 (정제수), amount 합계 150-220g
-- giIngredientId: ingredients 배열의 실제 id 값과 정확히 일치
+아래 제품군 배합 가이드를 엄격히 따라 배합 원료(8-12개)와 원가 구조를 JSON으로만 출력하세요.
 
-{"formula":{"ingredients":[{"id":"wpi","name":"유청단백","amount":20,"unit":"g","role":"단백","price":12,"moq":25,"yieldPct":98},{"id":"iso","name":"이소말툴로스","amount":15,"unit":"g","role":"탄수","price":5,"moq":50,"yieldPct":99},{"id":"mct","name":"MCT오일","amount":5,"unit":"g","role":"지방","price":8,"moq":20,"yieldPct":99},{"id":"vdmx","name":"비타민D믹스","amount":0.05,"unit":"g","role":"미량","price":300,"moq":1,"yieldPct":95},{"id":"xgm","name":"잔탄검","amount":0.3,"unit":"g","role":"안정","price":15,"moq":5,"yieldPct":99},{"id":"flv","name":"바닐라향","amount":0.5,"unit":"g","role":"관능","price":80,"moq":2,"yieldPct":100},{"id":"suc","name":"수크랄로스","amount":0.02,"unit":"g","role":"감미","price":500,"moq":0.5,"yieldPct":100},{"id":"wtr","name":"정제수","amount":160,"unit":"g","role":"담체","price":0.01,"moq":1000,"yieldPct":100}],"flavors":["바닐라","무향","딸기"],"formats":["액상팩 200ml","파우치"],"roleTargets":{"carb":15,"protein":20,"fat":5,"micro":0.05},"giIngredientId":"iso","efficacyLabels":{"carb":"저GI 탄수화물","protein":"근육 단백질","fat":"에너지 지방","micro":"비타민 미네랄"},"efficacyTargets":{"carb":"혈당 지수 40 이하","protein":"류신 2.4g 이상","fat":"MCT 포함","micro":"비타민D 15μg"}},"cost":{"packaging":{"liquidPack":250,"outerBox":180,"shipperBox":120,"label":80,"sterilization":200},"overhead":{"labor":400,"utility":250,"qa":300,"depreciation":200,"logistics":350},"target":{"wholesaleMarkup":1.6,"retailMarkup":2.4,"msrp":45000}}}`;
+[제품군 배합 가이드]
+${guide.cGuide}
+
+공통 규칙:
+- id: 3-6자 영문소문자 고유코드 (중복 금지)
+- role: 반드시 "탄수"|"단백"|"지방"|"미량"|"안정"|"감미"|"관능"|"담체" 중 하나
+- giIngredientId: ingredients 배열의 실제 id 값과 정확히 일치
+- price: 원료 1kg당 원화 단가 (정수)
+- 브리프의 건강이슈·생애주기에 맞는 원료로 교체
+
+[출력 스키마 예시 — 실제 브리프 조건에 맞게 교체]
+${guide.cExample}`;
   return callJsonLlm(env, prompt, 1100);
 }
 
