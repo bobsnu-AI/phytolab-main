@@ -347,7 +347,9 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
   };
   if (a1Err.length) console.error("[dataset_generate] LLM errors:", a1Err.join(" | "));
 
-  const ingredients = Array.isArray(c.formula?.ingredients) && c.formula.ingredients.length ? c.formula.ingredients : FALLBACK_INGREDIENTS;
+  const ingredients = Array.isArray(c.formula?.ingredients) && c.formula.ingredients.length
+    ? c.formula.ingredients
+    : getFallbackIngredients(brief.productType);
   const giIngredientId = ingredients.some((i: any) => i.id === c.formula?.giIngredientId)
     ? c.formula.giIngredientId
     : (ingredients.find((i: any) => i.role === "탄수")?.id || ingredients[0]?.id);
@@ -454,15 +456,75 @@ const FALLBACK_TARGET = {
   },
 };
 const FALLBACK_NUTRITION_COMPARE = [{ label: "주요 성분 (g)", our: 10, avg: 8, target: 10, max: 15 }];
-const FALLBACK_INGREDIENTS = [
-  { id: "base", name: "기본 탄수 원료", amount: 20, unit: "g", role: "탄수", price: 8, moq: 50, yieldPct: 98 },
-  { id: "prot", name: "기본 단백 원료", amount: 10, unit: "g", role: "단백", price: 30, moq: 25, yieldPct: 97 },
-  { id: "fat", name: "기본 지방 원료", amount: 6, unit: "g", role: "지방", price: 15, moq: 50, yieldPct: 99 },
-  { id: "micro", name: "비타민·미네랄", amount: 1, unit: "g", role: "미량", price: 200, moq: 5, yieldPct: 98 },
-  { id: "sw", name: "감미료", amount: 0.1, unit: "g", role: "감미", price: 500, moq: 5, yieldPct: 100 },
-  { id: "flav", name: "향미", amount: 0.3, unit: "g", role: "관능", price: 300, moq: 20, yieldPct: 100 },
-  { id: "wat", name: "정제수 (담체)", amount: 160, unit: "g", role: "담체", price: 0.5, moq: 1000, yieldPct: 100 },
-];
+// 제품군별 폴백 원료 — AI Call C 실패 시 사용. 추상적 "기본 원료" 대신 실제 원료명 사용.
+const FALLBACK_INGREDIENTS_BY_TYPE: Record<string, any[]> = {
+  fsmp: [
+    { id: "iso",  name: "이소말툴로스 (저GI 탄수)",     amount: 22, unit: "g", role: "탄수", price: 8,   moq: 100, yieldPct: 99 },
+    { id: "rmd",  name: "저항성 말토덱스트린 (식이섬유)", amount: 6,  unit: "g", role: "탄수", price: 12,  moq: 50,  yieldPct: 99 },
+    { id: "wpi",  name: "유청단백질 분리물 (WPI 90%)",   amount: 10, unit: "g", role: "단백", price: 35,  moq: 25,  yieldPct: 97 },
+    { id: "cas",  name: "카제인 나트륨",                 amount: 3,  unit: "g", role: "단백", price: 22,  moq: 25,  yieldPct: 98 },
+    { id: "mufa", name: "고올레산 해바라기유 (MUFA)",     amount: 6,  unit: "g", role: "지방", price: 14,  moq: 100, yieldPct: 99 },
+    { id: "mct",  name: "MCT 오일 (C8·C10)",             amount: 2,  unit: "g", role: "지방", price: 45,  moq: 20,  yieldPct: 99 },
+    { id: "vm",   name: "비타민·미네랄 프리믹스 (26종)", amount: 1.2, unit: "g", role: "미량", price: 220, moq: 5,   yieldPct: 98 },
+    { id: "emul", name: "레시틴 (유화안정제)",            amount: 0.8, unit: "g", role: "안정", price: 18,  moq: 50,  yieldPct: 100 },
+    { id: "flav", name: "바닐라 천연향",                  amount: 0.3, unit: "g", role: "관능", price: 320, moq: 20,  yieldPct: 100 },
+    { id: "sw",   name: "수크랄로스",                     amount: 0.05, unit: "g", role: "감미", price: 850, moq: 5,  yieldPct: 100 },
+    { id: "wat",  name: "정제수 (담체)",                  amount: 148.6, unit: "g", role: "담체", price: 0.5, moq: 1000, yieldPct: 100 },
+  ],
+  proteinshake: [
+    { id: "wpi",  name: "유청단백질 분리물 (WPI 90%)",   amount: 25, unit: "g", role: "단백", price: 12,  moq: 25,  yieldPct: 98 },
+    { id: "iso",  name: "이소말툴로스 (저GI 탄수)",      amount: 8,  unit: "g", role: "탄수", price: 5,   moq: 50,  yieldPct: 99 },
+    { id: "mct",  name: "MCT 오일분말",                  amount: 3,  unit: "g", role: "지방", price: 8,   moq: 10,  yieldPct: 99 },
+    { id: "leu",  name: "류신 (아미노산)",                amount: 2,  unit: "g", role: "미량", price: 25,  moq: 5,   yieldPct: 100 },
+    { id: "crt",  name: "크레아틴 모노하이드레이트",     amount: 3,  unit: "g", role: "미량", price: 4,   moq: 25,  yieldPct: 100 },
+    { id: "vitd", name: "비타민D3 분말",                 amount: 0.002, unit: "g", role: "미량", price: 800, moq: 0.1, yieldPct: 95 },
+    { id: "vanf", name: "바닐라 천연향",                  amount: 0.5, unit: "g", role: "관능", price: 80,  moq: 2,   yieldPct: 100 },
+    { id: "stv",  name: "스테비아",                       amount: 0.1, unit: "g", role: "감미", price: 200, moq: 1,   yieldPct: 100 },
+    { id: "wat",  name: "정제수 (담체)",                  amount: 155, unit: "g", role: "담체", price: 0.5, moq: 1000, yieldPct: 100 },
+  ],
+  proteinbar: [
+    { id: "wpi",    name: "유청단백질 분리물 (WPI 90%)", amount: 20, unit: "g", role: "단백", price: 12, moq: 25, yieldPct: 98 },
+    { id: "oatf",   name: "귀리 압착플레이크",           amount: 12, unit: "g", role: "탄수", price: 2,  moq: 50, yieldPct: 100 },
+    { id: "almond", name: "아몬드 분쇄물",                amount: 8,  unit: "g", role: "지방", price: 8,  moq: 10, yieldPct: 99 },
+    { id: "inul",   name: "이눌린 (식이섬유)",            amount: 4,  unit: "g", role: "안정", price: 5,  moq: 10, yieldPct: 99 },
+    { id: "leu",    name: "류신 (아미노산)",              amount: 2,  unit: "g", role: "미량", price: 25, moq: 5,  yieldPct: 100 },
+    { id: "cacao",  name: "코코아 분말",                  amount: 3,  unit: "g", role: "관능", price: 10, moq: 5,  yieldPct: 99 },
+    { id: "agave",  name: "아가베시럽 분말",              amount: 3,  unit: "g", role: "감미", price: 15, moq: 5,  yieldPct: 99 },
+    { id: "almbase",name: "아몬드버터 (결합제)",          amount: 5,  unit: "g", role: "담체", price: 10, moq: 10, yieldPct: 99 },
+  ],
+  soymilk: [
+    { id: "spi",   name: "대두분리단백 (SPI)",           amount: 8,  unit: "g", role: "단백", price: 6,   moq: 25,  yieldPct: 98 },
+    { id: "oat",   name: "귀리 추출물",                  amount: 5,  unit: "g", role: "탄수", price: 4,   moq: 20,  yieldPct: 99 },
+    { id: "inul",  name: "이눌린 (프리바이오틱)",        amount: 3,  unit: "g", role: "안정", price: 8,   moq: 10,  yieldPct: 99 },
+    { id: "caco3", name: "탄산칼슘",                     amount: 0.4, unit: "g", role: "미량", price: 2,  moq: 10,  yieldPct: 100 },
+    { id: "vitd",  name: "비타민D3 분말",                amount: 0.002, unit: "g", role: "미량", price: 800, moq: 0.1, yieldPct: 95 },
+    { id: "vanext",name: "바닐라 천연향",                amount: 0.3, unit: "g", role: "관능", price: 100, moq: 1,  yieldPct: 100 },
+    { id: "stv",   name: "스테비아",                     amount: 0.1, unit: "g", role: "감미", price: 200, moq: 1,   yieldPct: 100 },
+    { id: "wtr",   name: "정제수 (담체)",                amount: 180, unit: "g", role: "담체", price: 0.01, moq: 1000, yieldPct: 100 },
+  ],
+  rawfood: [
+    { id: "rice",   name: "현미 분말",                   amount: 10, unit: "g", role: "탄수", price: 3,  moq: 25, yieldPct: 99 },
+    { id: "oat",    name: "귀리 분말",                   amount: 8,  unit: "g", role: "탄수", price: 4,  moq: 20, yieldPct: 99 },
+    { id: "spiru",  name: "스피루리나 분말",              amount: 2,  unit: "g", role: "단백", price: 50, moq: 3,  yieldPct: 97 },
+    { id: "kale",   name: "동결건조 케일분말",            amount: 5,  unit: "g", role: "미량", price: 80, moq: 5,  yieldPct: 95 },
+    { id: "flax",   name: "아마씨 분말 (오메가3)",        amount: 3,  unit: "g", role: "지방", price: 12, moq: 10, yieldPct: 98 },
+    { id: "ginger", name: "생강 분말",                   amount: 1,  unit: "g", role: "관능", price: 15, moq: 5,  yieldPct: 98 },
+    { id: "stv",    name: "천연 스테비아",                amount: 0.3, unit: "g", role: "감미", price: 200, moq: 1, yieldPct: 100 },
+  ],
+  tea: [
+    { id: "gtea",  name: "녹차 분말 (카테킨)",           amount: 1.5, unit: "g", role: "관능", price: 30, moq: 10, yieldPct: 99 },
+    { id: "cham",  name: "캐모마일 분말",                amount: 0.8, unit: "g", role: "관능", price: 40, moq: 5,  yieldPct: 99 },
+    { id: "roos",  name: "루이보스 분말",                amount: 0.5, unit: "g", role: "관능", price: 35, moq: 5,  yieldPct: 99 },
+    { id: "ging",  name: "생강 추출물분말",              amount: 0.2, unit: "g", role: "미량", price: 80, moq: 2,  yieldPct: 97 },
+    { id: "cin",   name: "계피 분말",                    amount: 0.1, unit: "g", role: "미량", price: 20, moq: 5,  yieldPct: 99 },
+    { id: "stv",   name: "스테비아",                     amount: 0.05, unit: "g", role: "감미", price: 200, moq: 1, yieldPct: 100 },
+  ],
+};
+// 제품군 폴백 없는 경우 FSMP 기준 원료를 기본값으로 사용
+function getFallbackIngredients(productType?: string): any[] {
+  return FALLBACK_INGREDIENTS_BY_TYPE[productType || "fsmp"]
+    || FALLBACK_INGREDIENTS_BY_TYPE["fsmp"];
+}
 const FALLBACK_COST = {
   packaging: { liquidPack: 240, outerBox: 620, shipperBox: 180, label: 120, sterilization: 480 },
   overhead: { labor: 780, utility: 340, qa: 320, depreciation: 420, logistics: 380 },

@@ -196,9 +196,10 @@ const Step3Formula = () => {
             const isCarrier = ing.id === "wat";
             const amt = isCarrier ? waterAmount : ing.amount;
             const maxAmt = isCarrier ? 180 :
-              ing.id === "iso" ? 40 :
-              ing.id === "wpi" ? 20 :
-              ing.id === "mufa" ? 15 :
+              ing.role === "탄수" ? 50 :
+              ing.role === "단백" ? 30 :
+              ing.role === "지방" ? 20 :
+              ing.role === "안정" ? 5 :
               ing.role === "미량" ? 3 :
               ing.role === "관능" ? 2 :
               ing.role === "감미" ? 1 : 20;

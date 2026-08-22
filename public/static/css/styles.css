@@ -1561,6 +1561,9 @@ body::before {
 .role-tag.role-지방 { background: oklch(0.75 0.14 55 / 0.2); color: oklch(0.85 0.14 55); }
 .role-tag.role-미량 { background: oklch(from var(--accent-3) l c h / 0.2); color: var(--accent-3); }
 .role-tag.role-안정 { background: oklch(0.6 0.03 245 / 0.2); color: var(--text-2); }
+.role-tag.role-감미 { background: oklch(0.72 0.12 330 / 0.2); color: oklch(0.82 0.12 330); }
+.role-tag.role-관능 { background: oklch(0.7 0.13 20 / 0.2); color: oklch(0.8 0.13 20); }
+.role-tag.role-담체 { background: oklch(0.55 0.02 200 / 0.2); color: var(--text-3); }
 
 /* ── 경쟁사 분석표 모바일: 카드형 ── */
 @media (max-width: 768px) {
