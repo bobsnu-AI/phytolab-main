@@ -8,14 +8,27 @@
    - 동결건조 분말 원가 계산
    - 계산 결과 → 자사단가(₩/g)로 자동 적용 콜백
 ───────────────────────────────────────────────────────── */
-function IngredientPriceLookup({ onApplyPrice }) {
-  const [keyword, setKeyword] = React.useState("");
+function IngredientPriceLookup({ onApplyPrice, initialKeyword, autoSearch }) {
+  const [keyword, setKeyword] = React.useState(initialKeyword || "");
   const [apiKey, setApiKey] = React.useState(() => localStorage.getItem("phytolab-agro-apikey") || "");
   const [showApiKeyInput, setShowApiKeyInput] = React.useState(false);
   const [channel, setChannel] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [result, setResult] = React.useState(null);
   const [error, setError] = React.useState(null);
+
+  // initialKeyword 변경 시 keyword 갱신 + autoSearch면 자동 조회
+  React.useEffect(() => {
+    if (initialKeyword) {
+      setKeyword(initialKeyword);
+      setResult(null);
+      setError(null);
+      if (autoSearch) {
+        // 상태 갱신 후 다음 틱에 조회 실행
+        setTimeout(() => triggerSearch(initialKeyword), 50);
+      }
+    }
+  }, [initialKeyword, autoSearch]);
 
   // 동결건조 계산 state
   const [fdRawKg, setFdRawKg] = React.useState(100);
@@ -60,29 +73,28 @@ function IngredientPriceLookup({ onApplyPrice }) {
     }
   }
 
-  async function handleSearch() {
-    if (!keyword.trim()) { setError("원료명을 입력하세요"); return; }
+  async function triggerSearch(kw) {
+    const q = (kw || keyword).trim();
+    if (!q) { setError("원료명을 입력하세요"); return; }
     setLoading(true); setError(null); setResult(null);
     localStorage.setItem("phytolab-agro-apikey", apiKey.trim());
     try {
-      const params = new URLSearchParams({
-        keyword: keyword.trim(),
-        apiKey: apiKey.trim(),
-        ...(channel && { channel }),
-      });
+      const params = new URLSearchParams({ keyword: q, apiKey: apiKey.trim(), ...(channel && { channel }) });
       const res = await fetch(`/api/ingredient-price?${params.toString()}`);
       const data = await res.json();
       if (!data.ok) { setError(data.error || "조회 실패"); return; }
       setResult(data);
-      // 수분 DB에서 수분 자동 업데이트
-      if (window.NUTRIENT_DB) {
-        setFdMoisture(window.NUTRIENT_DB.getMoisture(keyword.trim()));
-      }
+      if (window.NUTRIENT_DB) setFdMoisture(window.NUTRIENT_DB.getMoisture(q));
     } catch (e) {
       setError("네트워크 오류: " + e.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleSearch() {
+    if (!keyword.trim()) { setError("원료명을 입력하세요"); return; }
+    await triggerSearch(keyword);
   }
 
   function calcFreezeDry() {
@@ -328,8 +340,9 @@ const Step4Cost = () => {
   const [localPriceMode, setLocalPriceMode] = useState("example");
   const [localCustomPrices, setLocalCustomPrices] = useState({});
 
-  // 원료 시세 패널 열기/닫기
+  // 원료 시세 패널 열기/닫기 + 빠른 조회 원료명
   const [showPriceLookup, setShowPriceLookup] = useState(false);
+  const [lookupIngredient, setLookupIngredient] = useState(null); // null = 수동 입력, string = 자동조회
 
   const servingsPerBox = ctx?.servings ?? localServings;
   const setServingsPerBox = ctx?.setServings || setLocalServings;
@@ -365,6 +378,13 @@ const Step4Cost = () => {
 
   const f = fPhyto;
 
+  // 인라인 토스트 상태
+  const [applyToast, setApplyToast] = useState(null);
+  function showToast(msg, isOk) {
+    setApplyToast({ msg, isOk });
+    setTimeout(() => setApplyToast(null), 3500);
+  }
+
   // 원료 시세 조회 결과 → 자사단가 자동 적용 핸들러
   function handleApplyIngredientPrice(keyword, pricePerG) {
     // 원료 이름으로 id 매칭 시도 (부분 일치)
@@ -374,12 +394,12 @@ const Step4Cost = () => {
       kwLower.includes(x.name.replace(/\s/g, "").toLowerCase())
     );
     if (ing) {
-      // 자사 단가 모드로 전환 후 적용
       setPriceMode("custom");
       updateCustomPrice(ing.id, pricePerG);
-      alert(`✅ "${ing.name}" 자사단가: ₩${pricePerG.toFixed(2)}/g 적용 완료`);
+      setLookupIngredient(null); // 자동조회 키 초기화
+      showToast(`✅ "${ing.name}" → ₩${pricePerG.toFixed(2)}/g 자사단가 적용`, true);
     } else {
-      alert(`ℹ️ "${keyword}"와 일치하는 배합 원료가 없습니다.\n직접 자사단가 입력 탭에서 해당 원료의 단가를 수정해주세요.`);
+      showToast(`"${keyword}"와 일치하는 배합 원료 없음 — 자사단가 탭에서 직접 수정`, false);
     }
   }
 
@@ -408,7 +428,7 @@ const Step4Cost = () => {
         <div className="step-badges">
           <div className="badge badge-accent"><span className="badge-k">MARGIN</span><span className="badge-v mono">{fmtFixed(marginPct, 1)}%</span></div>
           <div className="badge"><span className="badge-k">GM/박스</span><span className="badge-v mono">₩{fmtWon(msrp - totalCost)}</span></div>
-          <button className="ip-lookup-toggle" onClick={() => setShowPriceLookup(v => !v)}>
+          <button className="ip-lookup-toggle" onClick={() => { setShowPriceLookup(v => !v); if (showPriceLookup) setLookupIngredient(null); }}>
             🌾 {showPriceLookup ? "시세조회 닫기" : "원료 시세 조회"}
           </button>
         </div>
@@ -416,7 +436,16 @@ const Step4Cost = () => {
 
       {/* 원료 시세 조회 패널 (토글) */}
       {showPriceLookup && (
-        <IngredientPriceLookup onApplyPrice={handleApplyIngredientPrice} />
+        <IngredientPriceLookup
+          onApplyPrice={handleApplyIngredientPrice}
+          initialKeyword={lookupIngredient || ""}
+          autoSearch={!!lookupIngredient}
+        />
+      )}
+      {applyToast && (
+        <div className={`apply-toast ${applyToast.isOk ? "apply-toast-ok" : "apply-toast-warn"}`}>
+          {applyToast.msg}
+        </div>
       )}
 
       <Reveal id="pricing" label="목표 MSRP · 판가 포지셔닝" agent="mara">
@@ -526,6 +555,11 @@ const Step4Cost = () => {
                 자사 단가 입력 <span className="pm-tab-sub mono">(실공급단가)</span>
               </button>
             </div>
+            {priceMode === "example" && (
+              <div className="pm-note">
+                아래 <b>🔍</b> 버튼을 누르면 공공가격 API에서 해당 원료 시세를 바로 조회하고 자사단가로 적용합니다.
+              </div>
+            )}
             {priceMode === "custom" && (
               <div className="pm-note">
                 실제 공급업체 계약단가를 아래에 직접 입력하세요. 비워두면 예시 단가가 참고치로 사용됩니다.
@@ -534,21 +568,30 @@ const Step4Cost = () => {
             )}
 
             <div className={`raw-table ${priceMode === "custom" ? "raw-table-editable" : ""}`}>
-              <div className="rt-header mono">
+              <div className="rt-header mono" style={{gridTemplateColumns: priceMode==="example" ? "2fr 0.7fr 0.9fr 0.8fr 0.6fr 0.9fr 28px" : "2fr 0.7fr 0.9fr 0.8fr 0.6fr 0.9fr"}}>
                 <div>원료</div>
                 <div>1팩 (g)</div>
                 <div>박스 (g)</div>
                 <div>단가 (₩/g)</div>
                 <div>수율</div>
                 <div>박스당</div>
+                {priceMode === "example" && <div></div>}
               </div>
               {f.ingredients.filter(x => x.id !== "wat").map(ing => {
                 const perBox = ing.amount * servingsPerBox;
                 const price = priceFor(ing);
                 const boxCost = perBox * price / (ing.yieldPct/100);
                 const isCustomFilled = priceMode === "custom" && customPrices[ing.id] != null;
+                // 예시 단가 탭에서 시세조회 버튼 클릭 핸들러
+                const handleQuickLookup = () => {
+                  // 원료 기본명 추출 (괄호 앞 한글명)
+                  const baseName = ing.name.replace(/\s*[（(].*/g, "").trim();
+                  setLookupIngredient(baseName);
+                  setShowPriceLookup(true);
+                };
                 return (
-                  <div key={ing.id} className={`rt-row ${priceMode === "custom" && !isCustomFilled ? "rt-row-unfilled" : ""}`}>
+                  <div key={ing.id} className={`rt-row ${priceMode === "custom" && !isCustomFilled ? "rt-row-unfilled" : ""}`}
+                       style={{gridTemplateColumns: priceMode==="example" ? "2fr 0.7fr 0.9fr 0.8fr 0.6fr 0.9fr 28px" : "2fr 0.7fr 0.9fr 0.8fr 0.6fr 0.9fr"}}>
                     <div className="rt-name">{ing.name}</div>
                     <div className="mono">{ing.amount}</div>
                     <div className="mono">{perBox.toFixed(1)}</div>
@@ -565,6 +608,9 @@ const Step4Cost = () => {
                     </div>
                     <div className="mono">{ing.yieldPct}%</div>
                     <div className="mono rt-cost">₩{fmtWon(boxCost)}</div>
+                    {priceMode === "example" && (
+                      <button className="rt-lookup-btn" title={`"${ing.name}" 시세 조회`} onClick={handleQuickLookup}>🔍</button>
+                    )}
                   </div>
                 );
               })}
