@@ -264,7 +264,7 @@ ${guide.cGuide}
 - id: 3-6자 영문소문자 고유코드 (중복 금지)
 - role: 반드시 "탄수"|"단백"|"지방"|"미량"|"안정"|"감미"|"관능"|"담체" 중 하나
 - giIngredientId: ingredients 배열의 실제 id 값과 정확히 일치
-- price: 원료 1kg당 원화 단가 (정수)
+- price: 원료 1g당 원화 단가 ₩/g (소수 허용 — 예: 귀리분말=4, WPI=12, 비타민D=800, 스테비아=200)
 - 브리프의 건강이슈·생애주기에 맞는 원료로 교체
 
 [출력 스키마 예시 — 실제 브리프 조건에 맞게 교체]
@@ -347,9 +347,24 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
   };
   if (a1Err.length) console.error("[dataset_generate] LLM errors:", a1Err.join(" | "));
 
-  const ingredients = Array.isArray(c.formula?.ingredients) && c.formula.ingredients.length
+  const rawIngredients = Array.isArray(c.formula?.ingredients) && c.formula.ingredients.length
     ? c.formula.ingredients
     : getFallbackIngredients(brief.productType);
+
+  // price 단위 안전망: AI가 ₩/kg으로 잘못 생성한 경우 /1000 자동 변환
+  // 담체(정제수 등) 제외, 일반 원료에서 price > 2000이면 ₩/kg으로 판단
+  const nonCarrierPrices = rawIngredients
+    .filter((i: any) => i.role !== "담체" && i.role !== "안정" && typeof i.price === "number")
+    .map((i: any) => i.price);
+  const medianPrice = nonCarrierPrices.length
+    ? nonCarrierPrices.slice().sort((a: number, b: number) => a - b)[Math.floor(nonCarrierPrices.length / 2)]
+    : 0;
+  const priceScaleFactor = medianPrice > 2000 ? 1 / 1000 : 1; // ₩/kg → ₩/g
+
+  const ingredients = rawIngredients.map((i: any) => ({
+    ...i,
+    price: typeof i.price === "number" ? +(i.price * priceScaleFactor).toFixed(4) : i.price,
+  }));
   const giIngredientId = ingredients.some((i: any) => i.id === c.formula?.giIngredientId)
     ? c.formula.giIngredientId
     : (ingredients.find((i: any) => i.role === "탄수")?.id || ingredients[0]?.id);
