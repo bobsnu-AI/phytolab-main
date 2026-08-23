@@ -12,6 +12,7 @@ function IngredientPriceLookup({ onApplyPrice, initialKeyword, autoSearch }) {
   const [keyword, setKeyword] = React.useState(initialKeyword || "");
   const [apiKey, setApiKey] = React.useState(() => localStorage.getItem("phytolab-agro-apikey") || "");
   const [showApiKeyInput, setShowApiKeyInput] = React.useState(false);
+  const [showFreezeDry, setShowFreezeDry] = React.useState(false); // 기본 접힘
   const [channel, setChannel] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [result, setResult] = React.useState(null);
@@ -243,10 +244,14 @@ function IngredientPriceLookup({ onApplyPrice, initialKeyword, autoSearch }) {
         </div>
       )}
 
-      {/* 동결건조 분말 원가 계산기 */}
+      {/* 동결건조 분말 원가 계산기 — 접이식 */}
       {result && result.avgPricePerKg > 0 && (
         <div className="fd-calc-section">
-          <div className="fd-title">🧊 동결건조 분말 원가 계산</div>
+          <button className="fd-toggle" onClick={() => setShowFreezeDry(v => !v)}>
+            🧊 동결건조 분말 원가 계산{showFreezeDry ? " ▲" : " ▼"}
+          </button>
+          {showFreezeDry && (
+            <>
           <div className="fd-inputs">
             <label className="fd-label">
               <span>원물 투입량 (kg)</span>
@@ -289,6 +294,8 @@ function IngredientPriceLookup({ onApplyPrice, initialKeyword, autoSearch }) {
                 </button>
               )}
             </div>
+          )}
+            </>
           )}
 
           {/* 동결건조 미사용 시 원물 단가 직접 적용 */}
@@ -428,20 +435,9 @@ const Step4Cost = () => {
         <div className="step-badges">
           <div className="badge badge-accent"><span className="badge-k">MARGIN</span><span className="badge-v mono">{fmtFixed(marginPct, 1)}%</span></div>
           <div className="badge"><span className="badge-k">GM/박스</span><span className="badge-v mono">₩{fmtWon(msrp - totalCost)}</span></div>
-          <button className="ip-lookup-toggle" onClick={() => { setShowPriceLookup(v => !v); if (showPriceLookup) setLookupIngredient(null); }}>
-            🌾 {showPriceLookup ? "시세조회 닫기" : "원료 시세 조회"}
-          </button>
         </div>
       </div>
 
-      {/* 원료 시세 조회 패널 (토글) */}
-      {showPriceLookup && (
-        <IngredientPriceLookup
-          onApplyPrice={handleApplyIngredientPrice}
-          initialKeyword={lookupIngredient || ""}
-          autoSearch={!!lookupIngredient}
-        />
-      )}
       {applyToast && (
         <div className={`apply-toast ${applyToast.isOk ? "apply-toast-ok" : "apply-toast-warn"}`}>
           {applyToast.msg}
@@ -615,6 +611,24 @@ const Step4Cost = () => {
                 );
               })}
             </div>
+          </div>
+
+          {/* 원료 시세 조회 패널 — 원료비 상세 바로 아래 */}
+          <div className="price-lookup-inline">
+            <button
+              className="pli-toggle"
+              onClick={() => { setShowPriceLookup(v => !v); if (showPriceLookup) setLookupIngredient(null); }}
+            >
+              <span>🌾 원료 시세 조회 · 동결건조 원가 계산기</span>
+              <span className="pli-chevron">{showPriceLookup ? "▲" : "▼"}</span>
+            </button>
+            {showPriceLookup && (
+              <IngredientPriceLookup
+                onApplyPrice={handleApplyIngredientPrice}
+                initialKeyword={lookupIngredient || ""}
+                autoSearch={!!lookupIngredient}
+              />
+            )}
           </div>
 
           <Reveal id="channel" label="채널별 손익 시뮬레이션" agent="finn">

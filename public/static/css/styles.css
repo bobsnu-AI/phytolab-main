@@ -2446,6 +2446,44 @@ body::before {
   .badge-v   { max-width: 110px; }
 }
 
+/* ⑮ Session D — price-lookup-inline & fd-toggle */
+.price-lookup-inline {
+  margin-top: 10px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.pli-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 12px;
+  background: var(--bg-2);
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-2);
+  transition: background 0.15s;
+}
+.pli-toggle:hover { background: var(--bg-3); }
+.pli-chevron { font-size: 9px; color: var(--text-4); }
+.fd-toggle {
+  width: 100%;
+  text-align: left;
+  background: var(--bg-2);
+  border: none;
+  border-top: 1px solid var(--line);
+  padding: 7px 10px;
+  font-size: 11px;
+  color: var(--accent-2);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.fd-toggle:hover { background: var(--bg-3); color: var(--text-1); }
+
 /* ⑭ Brief Landing 모바일 */
 @media (max-width: 768px) {
   .brief-topbar {
