@@ -355,6 +355,32 @@ const Step4Cost = () => {
   const [autoFetchedPrices, setAutoFetchedPrices] = useState({}); // { [ing.id]: pricePerG }
   const [autoFetchStatus, setAutoFetchStatus] = useState({});    // { [ing.id]: "loading"|"ok"|"fail" }
 
+  // 마운트 직후 1회 자동 조회 트리거
+  const autoFetchDoneRef = React.useRef(false);
+  if (!autoFetchDoneRef.current) {
+    const ingsToFetch = (ctx?.ings || fPhyto?.ingredients || []).filter(x => x.id !== "wat");
+    if (ingsToFetch.length > 0) {
+      autoFetchDoneRef.current = true;
+      ingsToFetch.forEach((ing, i) => {
+        setTimeout(async () => {
+          const baseName = ing.name.replace(/\s*[（(【\[].*/g, "").trim();
+          try {
+            const res = await fetch(`/api/ingredient-price?keyword=${encodeURIComponent(baseName)}`);
+            const data = await res.json();
+            if (data.ok && data.avgPricePerGram) {
+              setAutoFetchedPrices(prev => ({ ...prev, [ing.id]: data.avgPricePerGram }));
+              setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "ok" }));
+            } else {
+              setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "fail" }));
+            }
+          } catch {
+            setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "fail" }));
+          }
+        }, i * 300);
+      });
+    }
+  }
+
   const servingsPerBox = ctx?.servings ?? localServings;
   const setServingsPerBox = ctx?.setServings || setLocalServings;
   const yieldOverall = ctx?.yieldOverall ?? localYield;
@@ -381,40 +407,6 @@ const Step4Cost = () => {
     if (priceMode === "example" && autoFetchedPrices[ing.id] != null) return autoFetchedPrices[ing.id];
     return ing.price;
   };
-
-  // 원료 목록이 준비되면 자동 시세 조회 (예시단가 탭에 반영)
-  const currentIngsForFetch = ctx?.ings || (fPhyto?.ingredients || []);
-
-  const fetchKeyRef = React.useRef("");
-  useEffect(() => {
-    const ings = currentIngsForFetch.filter(x => x.id !== "wat");
-    if (ings.length === 0) return;
-
-    // 원료 구성이 바뀔 때만 재조회
-    const key = ings.map(x => x.id).join(",");
-    if (key === fetchKeyRef.current) return;
-    fetchKeyRef.current = key;
-
-    // 모든 원료를 순차 조회 (250ms 간격)
-    ings.forEach((ing, i) => {
-      setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "loading" }));
-      setTimeout(async () => {
-        const baseName = ing.name.replace(/\s*[（(【\[].*/g, "").trim();
-        try {
-          const res = await fetch(`/api/ingredient-price?keyword=${encodeURIComponent(baseName)}`);
-          const data = await res.json();
-          if (data.ok && data.avgPricePerGram) {
-            setAutoFetchedPrices(prev => ({ ...prev, [ing.id]: data.avgPricePerGram }));
-            setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "ok" }));
-          } else {
-            setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "fail" }));
-          }
-        } catch {
-          setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "fail" }));
-        }
-      }, i * 300);
-    });
-  }); // 의존성 없음 — fetchKeyRef로 중복 방지
 
   // 원가 계산 — priceFor는 autoFetchedPrices 반영한 로컬 함수로 항상 직접 계산
   const currentIngs = ctx?.ings || fPhyto.ingredients;
