@@ -384,25 +384,24 @@ const Step4Cost = () => {
 
   // 원료 목록이 준비되면 자동 시세 조회 (예시단가 탭에 반영)
   const currentIngsForFetch = ctx?.ings || (fPhyto?.ingredients || []);
-  // 원료 id 목록을 key로 사용해 중복 조회 방지
-  const ingsFetchKey = useMemo(
-    () => currentIngsForFetch.filter(x => x.id !== "wat").map(x => x.id).join(","),
-    [currentIngsForFetch]
-  );
+
   const fetchKeyRef = React.useRef("");
   useEffect(() => {
-    if (!ingsFetchKey || ingsFetchKey === fetchKeyRef.current) return;
-    fetchKeyRef.current = ingsFetchKey;
-
     const ings = currentIngsForFetch.filter(x => x.id !== "wat");
-    // 모든 원료를 순차 조회 (API rate-limit 배려: 250ms 간격)
+    if (ings.length === 0) return;
+
+    // 원료 구성이 바뀔 때만 재조회
+    const key = ings.map(x => x.id).join(",");
+    if (key === fetchKeyRef.current) return;
+    fetchKeyRef.current = key;
+
+    // 모든 원료를 순차 조회 (250ms 간격)
     ings.forEach((ing, i) => {
       setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "loading" }));
       setTimeout(async () => {
-        const baseName = ing.name.replace(/\s*[（(].*/g, "").trim();
+        const baseName = ing.name.replace(/\s*[（(【\[].*/g, "").trim();
         try {
-          const params = new URLSearchParams({ keyword: baseName });
-          const res = await fetch(`/api/ingredient-price?${params.toString()}`);
+          const res = await fetch(`/api/ingredient-price?keyword=${encodeURIComponent(baseName)}`);
           const data = await res.json();
           if (data.ok && data.avgPricePerGram) {
             setAutoFetchedPrices(prev => ({ ...prev, [ing.id]: data.avgPricePerGram }));
@@ -413,9 +412,9 @@ const Step4Cost = () => {
         } catch {
           setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "fail" }));
         }
-      }, i * 250);
+      }, i * 300);
     });
-  }, [ingsFetchKey]); // 원료 구성 변경 시 재실행
+  }); // 의존성 없음 — fetchKeyRef로 중복 방지
 
   // 원가 계산 — priceFor는 autoFetchedPrices 반영한 로컬 함수로 항상 직접 계산
   const currentIngs = ctx?.ings || fPhyto.ingredients;
