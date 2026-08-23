@@ -351,6 +351,10 @@ const Step4Cost = () => {
   const [showPriceLookup, setShowPriceLookup] = useState(false);
   const [lookupIngredient, setLookupIngredient] = useState(null); // null = 수동 입력, string = 자동조회
 
+  // 자동 시세 조회 결과 (예시단가 탭에 반영)
+  const [autoFetchedPrices, setAutoFetchedPrices] = useState({}); // { [ing.id]: pricePerG }
+  const [autoFetchStatus, setAutoFetchStatus] = useState({});    // { [ing.id]: "loading"|"ok"|"fail" }
+
   const servingsPerBox = ctx?.servings ?? localServings;
   const setServingsPerBox = ctx?.setServings || setLocalServings;
   const yieldOverall = ctx?.yieldOverall ?? localYield;
@@ -370,7 +374,39 @@ const Step4Cost = () => {
     if (val === null || val === undefined || isNaN(val)) { const next = {...prev}; delete next[id]; return next; }
     return {...prev, [id]: Math.max(0, val)};
   }));
-  const priceFor = ctx?.priceFor || ((ing) => (priceMode === "custom" && customPrices[ing.id] != null) ? customPrices[ing.id] : ing.price);
+  // 예시 단가: autoFetchedPrices 우선, 없으면 ing.price(추정값) fallback
+  const priceFor = ctx?.priceFor || ((ing) => {
+    if (priceMode === "custom" && customPrices[ing.id] != null) return customPrices[ing.id];
+    if (priceMode === "example" && autoFetchedPrices[ing.id] != null) return autoFetchedPrices[ing.id];
+    return ing.price;
+  });
+
+  // 마운트 시 모든 원료 자동 시세 조회 (예시단가 탭에 반영)
+  const currentIngsForFetch = ctx?.ings || (fPhyto?.ingredients || []);
+  useEffect(() => {
+    if (!currentIngsForFetch || currentIngsForFetch.length === 0) return;
+    const ings = currentIngsForFetch.filter(x => x.id !== "wat");
+    // 모든 원료를 순차 조회 (API rate-limit 배려: 200ms 간격)
+    ings.forEach((ing, i) => {
+      setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "loading" }));
+      setTimeout(async () => {
+        const baseName = ing.name.replace(/\s*[（(].*/g, "").trim();
+        try {
+          const params = new URLSearchParams({ keyword: baseName });
+          const res = await fetch(`/api/ingredient-price?${params.toString()}`);
+          const data = await res.json();
+          if (data.ok && data.avgPricePerGram) {
+            setAutoFetchedPrices(prev => ({ ...prev, [ing.id]: data.avgPricePerGram }));
+            setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "ok" }));
+          } else {
+            setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "fail" }));
+          }
+        } catch {
+          setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "fail" }));
+        }
+      }, i * 250); // 250ms 간격
+    });
+  }, []); // 마운트 1회만
 
   // Context에서 원가 계산치 우선 사용
   const currentIngs = ctx?.ings || fPhyto.ingredients;
@@ -392,7 +428,7 @@ const Step4Cost = () => {
     setTimeout(() => setApplyToast(null), 3500);
   }
 
-  // 원료 시세 조회 결과 → 자사단가 자동 적용 핸들러
+  // 원료 시세 조회 결과 → 자사단가 + 예시단가 동시 적용 핸들러
   function handleApplyIngredientPrice(keyword, pricePerG) {
     // 원료 이름으로 id 매칭 시도 (부분 일치)
     const kwLower = keyword.replace(/\s/g, "").toLowerCase();
@@ -401,6 +437,10 @@ const Step4Cost = () => {
       kwLower.includes(x.name.replace(/\s/g, "").toLowerCase())
     );
     if (ing) {
+      // 예시단가 탭에도 API 조회가로 갱신 (🟢 표시)
+      setAutoFetchedPrices(prev => ({ ...prev, [ing.id]: pricePerG }));
+      setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "ok" }));
+      // 자사단가 탭으로 전환 + 적용
       setPriceMode("custom");
       updateCustomPrice(ing.id, pricePerG);
       setLookupIngredient(null); // 자동조회 키 초기화
@@ -553,7 +593,8 @@ const Step4Cost = () => {
             </div>
             {priceMode === "example" && (
               <div className="pm-note">
-                아래 <b>🔍</b> 버튼을 누르면 공공가격 API에서 해당 원료 시세를 바로 조회하고 자사단가로 적용합니다.
+                공공가격 API 시세가 자동 반영됩니다. 조회 안 된 원료는 추정 단가(⚠️)로 표시됩니다.
+                <b>🔍</b> 버튼으로 개별 재조회 후 자사단가로 적용할 수 있습니다.
               </div>
             )}
             {priceMode === "custom" && (
@@ -600,7 +641,20 @@ const Step4Cost = () => {
                           value={customPrices[ing.id] ?? ""}
                           onChange={(e) => updateCustomPrice(ing.id, e.target.value === "" ? null : +e.target.value)}
                         />
-                      ) : price.toFixed(1)}
+                      ) : (
+                        <span>
+                          {autoFetchStatus[ing.id] === "loading"
+                            ? <span className="af-loading">…</span>
+                            : price.toFixed(1)
+                          }
+                          {autoFetchStatus[ing.id] === "ok"
+                            ? <span className="af-badge af-ok" title="공공가격 API 시세">🟢</span>
+                            : autoFetchStatus[ing.id] === "fail"
+                              ? <span className="af-badge af-fail" title="API 조회 실패 · 추정값">⚠️</span>
+                              : null
+                          }
+                        </span>
+                      )}
                     </div>
                     <div className="mono">{ing.yieldPct}%</div>
                     <div className="mono rt-cost">₩{fmtWon(boxCost)}</div>
