@@ -324,6 +324,41 @@ function fmtWonFixed(v, d) {
 }
 
 /* ─────────────────────────────────────────────────────────
+   컴포넌트 외부: 원료 시세 자동 일괄 조회
+   React 렌더 사이클 밖에서 실행 → window.__autoFetchedPrices 에 저장
+   완료 시 CustomEvent 발행 → Step4Cost가 구독해서 state 갱신
+───────────────────────────────────────────────────────── */
+window.__autoFetchedPrices = window.__autoFetchedPrices || {};
+window.__autoFetchStatus   = window.__autoFetchStatus   || {};
+
+async function runAutoFetch(ings) {
+  const key = ings.map(x => x.id).join(",");
+  if (window.__autoFetchKey === key) return;   // 이미 조회 완료
+  window.__autoFetchKey = key;
+
+  for (let i = 0; i < ings.length; i++) {
+    const ing = ings[i];
+    window.__autoFetchStatus[ing.id] = "loading";
+    await new Promise(r => setTimeout(r, i === 0 ? 0 : 300));
+    const baseName = ing.name.replace(/\s*[（(【\[\(].*/g, "").trim();
+    try {
+      const res  = await fetch(`/api/ingredient-price?keyword=${encodeURIComponent(baseName)}`);
+      const data = await res.json();
+      if (data.ok && data.avgPricePerGram) {
+        window.__autoFetchedPrices[ing.id] = data.avgPricePerGram;
+        window.__autoFetchStatus[ing.id]   = "ok";
+      } else {
+        window.__autoFetchStatus[ing.id] = "fail";
+      }
+    } catch {
+      window.__autoFetchStatus[ing.id] = "fail";
+    }
+    // 매 원료 완료마다 이벤트 발행 → UI 즉시 갱신
+    window.dispatchEvent(new CustomEvent("autoFetchUpdate"));
+  }
+}
+
+/* ─────────────────────────────────────────────────────────
    Step4Cost 메인 컴포넌트
 ───────────────────────────────────────────────────────── */
 const Step4Cost = () => {
@@ -351,35 +386,23 @@ const Step4Cost = () => {
   const [showPriceLookup, setShowPriceLookup] = useState(false);
   const [lookupIngredient, setLookupIngredient] = useState(null); // null = 수동 입력, string = 자동조회
 
-  // 자동 시세 조회 결과 (예시단가 탭에 반영)
-  const [autoFetchedPrices, setAutoFetchedPrices] = useState({}); // { [ing.id]: pricePerG }
-  const [autoFetchStatus, setAutoFetchStatus] = useState({});    // { [ing.id]: "loading"|"ok"|"fail" }
+  // 자동 시세 조회: window 글로벌 객체 구독 (React 렌더 외부에서 fetch 실행)
+  const [autoFetchTick, setAutoFetchTick] = useState(0); // 이벤트 수신 시 증가 → 리렌더
+  // autoFetchedPrices/Status는 window 객체에서 직접 읽음
+  const autoFetchedPrices = window.__autoFetchedPrices;
+  const autoFetchStatus   = window.__autoFetchStatus;
 
-  // 마운트 직후 1회 자동 조회 트리거
-  const autoFetchDoneRef = React.useRef(false);
-  if (!autoFetchDoneRef.current) {
-    const ingsToFetch = (ctx?.ings || fPhyto?.ingredients || []).filter(x => x.id !== "wat");
-    if (ingsToFetch.length > 0) {
-      autoFetchDoneRef.current = true;
-      ingsToFetch.forEach((ing, i) => {
-        setTimeout(async () => {
-          const baseName = ing.name.replace(/\s*[（(【\[].*/g, "").trim();
-          try {
-            const res = await fetch(`/api/ingredient-price?keyword=${encodeURIComponent(baseName)}`);
-            const data = await res.json();
-            if (data.ok && data.avgPricePerGram) {
-              setAutoFetchedPrices(prev => ({ ...prev, [ing.id]: data.avgPricePerGram }));
-              setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "ok" }));
-            } else {
-              setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "fail" }));
-            }
-          } catch {
-            setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "fail" }));
-          }
-        }, i * 300);
-      });
-    }
+  // window 이벤트 구독 (1회만)
+  const fetchListenerRef = React.useRef(false);
+  if (!fetchListenerRef.current) {
+    fetchListenerRef.current = true;
+    window.addEventListener("autoFetchUpdate", () => setAutoFetchTick(t => t + 1));
   }
+
+  // 원료 목록이 준비되면 runAutoFetch 호출
+  const currentIngsForFetch = ctx?.ings || fPhyto?.ingredients || [];
+  const ingsToFetch = currentIngsForFetch.filter(x => x.id !== "wat");
+  if (ingsToFetch.length > 0) runAutoFetch(ingsToFetch);
 
   const servingsPerBox = ctx?.servings ?? localServings;
   const setServingsPerBox = ctx?.setServings || setLocalServings;
