@@ -381,12 +381,20 @@ const Step4Cost = () => {
     return ing.price;
   });
 
-  // 마운트 시 모든 원료 자동 시세 조회 (예시단가 탭에 반영)
+  // 원료 목록이 준비되면 자동 시세 조회 (예시단가 탭에 반영)
   const currentIngsForFetch = ctx?.ings || (fPhyto?.ingredients || []);
+  // 원료 id 목록을 key로 사용해 중복 조회 방지
+  const ingsFetchKey = useMemo(
+    () => currentIngsForFetch.filter(x => x.id !== "wat").map(x => x.id).join(","),
+    [currentIngsForFetch]
+  );
+  const fetchKeyRef = React.useRef("");
   useEffect(() => {
-    if (!currentIngsForFetch || currentIngsForFetch.length === 0) return;
+    if (!ingsFetchKey || ingsFetchKey === fetchKeyRef.current) return;
+    fetchKeyRef.current = ingsFetchKey;
+
     const ings = currentIngsForFetch.filter(x => x.id !== "wat");
-    // 모든 원료를 순차 조회 (API rate-limit 배려: 200ms 간격)
+    // 모든 원료를 순차 조회 (API rate-limit 배려: 250ms 간격)
     ings.forEach((ing, i) => {
       setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "loading" }));
       setTimeout(async () => {
@@ -404,9 +412,9 @@ const Step4Cost = () => {
         } catch {
           setAutoFetchStatus(prev => ({ ...prev, [ing.id]: "fail" }));
         }
-      }, i * 250); // 250ms 간격
+      }, i * 250);
     });
-  }, []); // 마운트 1회만
+  }, [ingsFetchKey]); // 원료 구성 변경 시 재실행
 
   // Context에서 원가 계산치 우선 사용
   const currentIngs = ctx?.ings || fPhyto.ingredients;
@@ -593,8 +601,8 @@ const Step4Cost = () => {
             </div>
             {priceMode === "example" && (
               <div className="pm-note">
-                공공가격 API 시세가 자동 반영됩니다. 조회 안 된 원료는 추정 단가(⚠️)로 표시됩니다.
-                <b>🔍</b> 버튼으로 개별 재조회 후 자사단가로 적용할 수 있습니다.
+                공공가격 API 시세가 <b>자동 반영</b>됩니다. 🟢 조회 완료 · ⚠️ 미매칭(추정값).
+                🔍 버튼으로 개별 재조회 후 <b>자사단가</b>로 적용할 수 있습니다.
               </div>
             )}
             {priceMode === "custom" && (
