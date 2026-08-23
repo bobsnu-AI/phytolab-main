@@ -375,11 +375,12 @@ const Step4Cost = () => {
     return {...prev, [id]: Math.max(0, val)};
   }));
   // 예시 단가: autoFetchedPrices 우선, 없으면 ing.price(추정값) fallback
-  const priceFor = ctx?.priceFor || ((ing) => {
+  // ※ ctx?.priceFor 는 autoFetchedPrices를 모르므로 항상 로컬 함수 사용
+  const priceFor = (ing) => {
     if (priceMode === "custom" && customPrices[ing.id] != null) return customPrices[ing.id];
     if (priceMode === "example" && autoFetchedPrices[ing.id] != null) return autoFetchedPrices[ing.id];
     return ing.price;
-  });
+  };
 
   // 원료 목록이 준비되면 자동 시세 조회 (예시단가 탭에 반영)
   const currentIngsForFetch = ctx?.ings || (fPhyto?.ingredients || []);
@@ -416,10 +417,10 @@ const Step4Cost = () => {
     });
   }, [ingsFetchKey]); // 원료 구성 변경 시 재실행
 
-  // Context에서 원가 계산치 우선 사용
+  // 원가 계산 — priceFor는 autoFetchedPrices 반영한 로컬 함수로 항상 직접 계산
   const currentIngs = ctx?.ings || fPhyto.ingredients;
-  const ingCostPerPack = ctx?.ingCostPerPack ?? currentIngs.reduce((s, x) => s + x.amount * priceFor(x) / (x.yieldPct/100), 0);
-  const rawPerBox = ctx?.rawPerBox ?? (ingCostPerPack * servingsPerBox / (yieldOverall/100));
+  const ingCostPerPack = currentIngs.reduce((s, x) => s + x.amount * priceFor(x) / (x.yieldPct/100), 0);
+  const rawPerBox = ingCostPerPack * servingsPerBox / (yieldOverall/100);
   const packPerBox = ctx?.packPerBox ?? (c.packaging.liquidPack * servingsPerBox + c.packaging.outerBox + c.packaging.shipperBox + c.packaging.label + c.packaging.sterilization);
   const ohPerBox = c.overhead.labor + c.overhead.utility + c.overhead.qa + c.overhead.depreciation + c.overhead.logistics;
   const ohAdjusted = ctx?.ohAdjusted ?? (ohPerBox * (30000 / Math.max(1, batchSize)) ** 0.15);
