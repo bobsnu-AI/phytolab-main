@@ -1659,6 +1659,20 @@ body::before {
   flex-wrap: wrap;
 }
 .ip-label { font-size: 11px; color: var(--text-3); white-space: nowrap; }
+.ip-apikey-status { display: flex; align-items: center; gap: 5px; color: var(--text-3); }
+.ip-key-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: oklch(0.75 0.16 145);
+  box-shadow: 0 0 4px oklch(0.75 0.16 145 / 0.6);
+  flex-shrink: 0;
+}
+.ip-apikey-toggle {
+  font-size: 10px; color: var(--text-4); background: none;
+  border: 1px solid var(--line); border-radius: 3px;
+  padding: 2px 7px; cursor: pointer; white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.ip-apikey-toggle:hover { color: var(--text-2); border-color: var(--line-strong); }
 .ip-input {
   background: var(--bg-0);
   border: 1px solid var(--line-strong);

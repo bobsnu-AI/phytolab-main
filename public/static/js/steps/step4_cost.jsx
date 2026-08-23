@@ -11,6 +11,7 @@
 function IngredientPriceLookup({ onApplyPrice }) {
   const [keyword, setKeyword] = React.useState("");
   const [apiKey, setApiKey] = React.useState(() => localStorage.getItem("phytolab-agro-apikey") || "");
+  const [showApiKeyInput, setShowApiKeyInput] = React.useState(false);
   const [channel, setChannel] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [result, setResult] = React.useState(null);
@@ -61,7 +62,6 @@ function IngredientPriceLookup({ onApplyPrice }) {
 
   async function handleSearch() {
     if (!keyword.trim()) { setError("원료명을 입력하세요"); return; }
-    if (!apiKey.trim()) { setError("공공데이터포털 API 키를 입력하세요"); return; }
     setLoading(true); setError(null); setResult(null);
     localStorage.setItem("phytolab-agro-apikey", apiKey.trim());
     try {
@@ -112,17 +112,27 @@ function IngredientPriceLookup({ onApplyPrice }) {
         </div>
       </div>
 
-      {/* API 키 설정 */}
+      {/* API 키 설정 — 서버에 AGRO_API_KEY 등록 시 입력 불필요 */}
       <div className="ip-apikey-row">
-        <span className="ip-label">공공데이터포털 API 키</span>
-        <input
-          type="password"
-          className="ip-input ip-input-key mono"
-          placeholder="공공데이터포털 서비스키 (data.go.kr)"
-          value={apiKey}
-          onChange={e => setApiKey(e.target.value)}
-        />
-        <a href="https://www.data.go.kr/data/15100578/openapi.do" target="_blank" rel="noopener" className="ip-link">키 발급 →</a>
+        <span className="ip-label ip-apikey-status">
+          <span className="ip-key-dot"></span>서버 API 키 사용 중
+        </span>
+        <button
+          className="ip-apikey-toggle"
+          onClick={() => setShowApiKeyInput(v => !v)}
+        >{showApiKeyInput ? "닫기" : "직접 키 입력 (선택)"}</button>
+        {showApiKeyInput && (
+          <>
+            <input
+              type="password"
+              className="ip-input ip-input-key mono"
+              placeholder="내 공공데이터포털 서비스키로 덮어쓰기 (선택)"
+              value={apiKey}
+              onChange={e => { setApiKey(e.target.value); localStorage.setItem("phytolab-agro-apikey", e.target.value); }}
+            />
+            <a href="https://www.data.go.kr/data/15100578/openapi.do" target="_blank" rel="noopener" className="ip-link">키 발급 →</a>
+          </>
+        )}
       </div>
 
       {/* 검색 입력 */}
