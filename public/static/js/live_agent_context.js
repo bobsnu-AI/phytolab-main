@@ -39,7 +39,7 @@
         "matrix", "nutrition_compare", "naver_trend",
         "reviews", "concept_pod", "conclusion"],
     2: ["papers", "nutrition", "ingredients"],
-    3: ["compliance", "formula_table", "efficacy", "sensory"],
+    3: ["compliance", "formula_table", "efficacy"],
     4: ["pricing", "cost_breakdown", "channel", "annual"],
   };
 

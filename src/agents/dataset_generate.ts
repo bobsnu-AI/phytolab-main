@@ -68,8 +68,10 @@ function extractJson(text: string): any {
   return JSON.parse(t.slice(start, end + 1));
 }
 
-// CF Pages Worker 30초 제한 안에서 7개 병렬 LLM 콜이 완료되어야 함
-// 첫 시도 10s + 재시도 없음 = 최대 10s per call, 병렬이므로 전체 ≈ 10~14s 이내
+// CF Pages Worker 30초 제한 안에서 전체 LLM 콜이 완료되어야 함
+// 첫 시도 10s + 재시도 없음 = 최대 10s per call.
+// A0/A1/A2/A2b/A3/B2/네이버는 서로 병렬(≈10~14s), B1→C는 B1의 nutritionTarget을
+// C 프롬프트에 반영해야 하므로 순차 실행(최악 10s+10s=20s) — 전체 worst-case ≈20~24s로 30s 이내 유지.
 async function callJsonLlm(env: LlmEnv, userPrompt: string, maxTokens: number): Promise<any> {
   const messages = [
     { role: "system" as const, content: SYSTEM_PROMPT },
@@ -251,14 +253,46 @@ async function generatePartB2(env: LlmEnv, brief: ConfirmedBrief) {
 }
 
 // ---------- Call C: formula ingredients + cost ----------
-async function generatePartC(env: LlmEnv, brief: ConfirmedBrief) {
+// nutritionTarget(B1 산출물)을 필수 인자로 받아 배합 설계가 STEP2 영양기준을 실제로 따르도록 강제한다.
+// (이전엔 B1/C가 Promise.all로 완전 병렬 실행되어 C가 B1 결과를 전혀 참조하지 못했음 — 구조적 버그)
+function buildNutritionTargetBlock(nutritionTarget: any): string {
+  if (!nutritionTarget || !Object.keys(nutritionTarget).length) return "";
+  const nt = nutritionTarget;
+  const calories = nt.calories?.value;
+  const carbRatio = nt.carbRatio?.value;
+  const proteinRatio = nt.proteinRatio?.value;
+  const fatRatio = nt.fatRatio?.value;
+  const giIndex = nt.giIndex?.value;
+  const sodium = nt.sodium?.value;
+
+  // 목표 칼로리·비율로부터 목표 g수를 역산해 LLM에게 구체적 숫자 타깃을 제공
+  const carbG = typeof calories === "number" && typeof carbRatio === "number" ? +((calories * carbRatio / 100) / 4).toFixed(1) : null;
+  const proteinG = typeof calories === "number" && typeof proteinRatio === "number" ? +((calories * proteinRatio / 100) / 4).toFixed(1) : null;
+  const fatG = typeof calories === "number" && typeof fatRatio === "number" ? +((calories * fatRatio / 100) / 9).toFixed(1) : null;
+
+  return `
+[필수 준수 — STEP2(영양기준설정)에서 이미 확정된 영양 목표치. 배합은 반드시 이 수치에 맞춰 설계할 것]
+- 목표 칼로리: ${calories ?? "미정"}${nt.calories?.unit || "kcal"}
+- 목표 탄수화물 비율: ${carbRatio ?? "미정"}%en${carbG !== null ? ` → 탄수 role 원료 amount 합계 ≈ ${carbG}g` : ""}
+- 목표 단백질 비율: ${proteinRatio ?? "미정"}%en${proteinG !== null ? ` → 단백 role 원료 amount 합계 ≈ ${proteinG}g` : ""}
+- 목표 지방 비율: ${fatRatio ?? "미정"}%en${fatG !== null ? ` → 지방 role 원료 amount 합계 ≈ ${fatG}g` : ""}
+- 목표 GI: ${giIndex ?? "미정"} 이하가 되도록 giIngredientId 원료 비중 조정
+- 목표 나트륨: ${sodium ?? "미정"}mg 이내
+
+위 목표 g수는 참고 기준선이며, 원료별 amount를 이 목표에 최대한 수렴하도록 설계하세요(±10% 이내 권장).
+목표치와 실제 설계값이 크게 어긋나는 경우, 그 사유를 각 원료 note에 짧게 남기세요.`;
+}
+
+async function generatePartC(env: LlmEnv, brief: ConfirmedBrief, nutritionTarget?: any) {
   const guide = getProductTypeIngredientGuide(brief.productType || "fsmp");
+  const targetBlock = buildNutritionTargetBlock(nutritionTarget);
   const prompt = `브리프: ${briefDescription(brief)}
 
 아래 제품군 배합 가이드를 엄격히 따라 배합 원료(8-12개)와 원가 구조를 JSON으로만 출력하세요.
 
 [제품군 배합 가이드]
 ${guide.cGuide}
+${targetBlock}
 
 공통 규칙:
 - id: 3-6자 영문소문자 고유코드 (중복 금지)
@@ -271,16 +305,6 @@ ${guide.cGuide}
 ${guide.cExample}`;
   return callJsonLlm(env, prompt, 1100);
 }
-
-// 관능 프로파일(6축)은 카테고리 불문 공통 구조를 사용 — role 기반이라 생성된 원료 구성에 자동으로 맞춰짐
-const GENERIC_SENSORY_AXES = [
-  { label: "단맛", parts: [{ role: "감미", divisor: 1, weight: 100 }] },
-  { label: "향미", parts: [{ role: "관능", divisor: 1, weight: 100 }], flavorBonus: 15 },
-  { label: "질감·바디감", parts: [{ role: "단백", divisor: 10, weight: 60 }, { role: "지방", divisor: 8, weight: 40 }] },
-  { label: "목넘김", parts: [{ role: "지방", divisor: 8, weight: 100 }] },
-  { label: "감미료 잔미", parts: [{ role: "감미", divisor: 1, weight: 100 }] },
-  { label: "전체 밸런스", parts: [{ role: "안정", divisor: 1, weight: 50 }, { role: "미량", divisor: 1, weight: 50 }] },
-];
 
 function buildEfficacyClaims(formula: any) {
   const rt = formula.roleTargets || { carb: 25, protein: 12, fat: 6, micro: 1.2 };
@@ -318,18 +342,27 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
       : null;
 
   const a1Err: string[] = [];
-  const [a0, a1, a2, a2b, a3, b1, b2, c, naverInsights] = await Promise.all([
-    generatePartA0(env, brief).catch((e) => { a1Err.push(`A0:${e?.message?.slice(0,100)}`); return {}; }),
-    generatePartA1(env, brief).catch((e) => { a1Err.push(`A1:${e?.message?.slice(0,100)}`); return {}; }),
-    generatePartA2(env, brief).catch((e) => { a1Err.push(`A2:${e?.message?.slice(0,100)}`); return {}; }),
-    generatePartA2b(env, brief).catch((e) => { a1Err.push(`A2b:${e?.message?.slice(0,100)}`); return {}; }),
-    generatePartA3(env, brief).catch((e) => { a1Err.push(`A3:${e?.message?.slice(0,100)}`); return {}; }),
-    generatePartB1(env, brief).catch((e) => { a1Err.push(`B1:${e?.message?.slice(0,100)}`); return {}; }),
-    generatePartB2(env, brief).catch((e) => { a1Err.push(`B2:${e?.message?.slice(0,100)}`); return {}; }),
-    generatePartC(env, brief).catch((e) => { a1Err.push(`C:${e?.message?.slice(0,100)}`); return {}; }),
-    naverEnv
-      ? fetchConsumerInsights(naverEnv, env, brief.condition).catch(() => null)
-      : Promise.resolve(null),
+
+  // B1(영양기준)을 먼저 확정한 뒤 그 결과를 C(배합·원가) 프롬프트에 주입해야
+  // "배합이 영양기준을 실제로 반영"하게 됨 — 완전 병렬(Promise.all)로 두면
+  // C가 B1의 목표치를 전혀 모른 채 독립적으로 원료를 설계해버리는 구조적 문제가 있었음.
+  // 단, 전체 응답 지연을 최소화하기 위해 B1과 무관한 나머지 호출(A0~A3, B2, 네이버)은
+  // B1을 기다리지 않고 즉시 병렬로 시작한다. C만 B1 완료 후 시작(사실상 B1 + C 두 콜만 순차).
+  const a0Promise = generatePartA0(env, brief).catch((e) => { a1Err.push(`A0:${e?.message?.slice(0,100)}`); return {}; });
+  const a1Promise = generatePartA1(env, brief).catch((e) => { a1Err.push(`A1:${e?.message?.slice(0,100)}`); return {}; });
+  const a2Promise = generatePartA2(env, brief).catch((e) => { a1Err.push(`A2:${e?.message?.slice(0,100)}`); return {}; });
+  const a2bPromise = generatePartA2b(env, brief).catch((e) => { a1Err.push(`A2b:${e?.message?.slice(0,100)}`); return {}; });
+  const a3Promise = generatePartA3(env, brief).catch((e) => { a1Err.push(`A3:${e?.message?.slice(0,100)}`); return {}; });
+  const b2Promise = generatePartB2(env, brief).catch((e) => { a1Err.push(`B2:${e?.message?.slice(0,100)}`); return {}; });
+  const naverPromise = naverEnv
+    ? fetchConsumerInsights(naverEnv, env, brief.condition).catch(() => null)
+    : Promise.resolve(null);
+
+  const b1: any = await generatePartB1(env, brief).catch((e) => { a1Err.push(`B1:${e?.message?.slice(0,100)}`); return {}; });
+  const cPromise = generatePartC(env, brief, b1?.nutritionTarget).catch((e) => { a1Err.push(`C:${e?.message?.slice(0,100)}`); return {}; });
+
+  const [a0, a1, a2, a2b, a3, b2, c, naverInsights] = await Promise.all([
+    a0Promise, a1Promise, a2Promise, a2bPromise, a3Promise, b2Promise, cPromise, naverPromise,
   ]);
   // A1 + A2(competitors) + A2b(reviews) + A3(concept) 병합
   const a = { ...a1, ...a2, reviews: a2b, concept: (a3 as any).concept || undefined };
@@ -382,7 +415,6 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
     flavors: Array.isArray(c.formula?.flavors) && c.formula.flavors.length ? c.formula.flavors : ["기본", "무향"],
     formats: Array.isArray(c.formula?.formats) && c.formula.formats.length ? c.formula.formats : ["액상팩 200ml"],
     efficacyClaims: buildEfficacyClaims(c.formula || {}),
-    sensoryAxes: GENERIC_SENSORY_AXES,
   };
 
   // brief.productType을 product 객체에 항상 주입 — LLM이 category를 자의적으로 쓰더라도

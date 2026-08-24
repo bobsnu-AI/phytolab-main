@@ -1200,11 +1200,6 @@ body::before {
 .eff-bar-target { position: absolute; left: 95%; top: -2px; bottom: -2px; width: 2px; background: var(--text-1); opacity: 0.4; }
 .eff-target { font-size: 9px; color: var(--text-4); margin-top: 4px; letter-spacing: 0.04em; }
 
-.radar-wrap { display: grid; place-items: center; padding: 8px 0; color: var(--text-3); }
-.radar { max-width: 100%; }
-.radar-label { fill: var(--text-2); }
-.radar-value { fill: var(--accent); font-weight: 600; }
-
 /* ===== Step 5: Cost ===== */
 .cost-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .ckpi {

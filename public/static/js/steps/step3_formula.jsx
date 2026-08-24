@@ -1,6 +1,6 @@
 // Step 3: Formulation — FSMP 배합설계 + 영양기준 준수 검증 (LIVE with FormulaContext)
 
-// 원료 id/role 기반 범용 가중합 계산 — EffBar·SensoryRadar 공통 사용
+// 원료 id/role 기반 범용 가중합 계산 — EffBar 등에서 공통 사용
 // parts: [{ id?: string, ids?: string[], role?: string, divisor: number, weight: number }]
 function sumParts(ings, parts) {
   return parts.reduce((sum, p) => {
@@ -320,17 +320,6 @@ const Step3Formula = () => {
           </div>
           </Reveal>
 
-          <Reveal id="sensory" label="관능 프로파일" agent="rena">
-          <div className="panel">
-            <div className="panel-header">
-              <div>
-                <div className="panel-title">관능 프로파일 예측 <window.SourceTag id="rule_based_model" label="AI 아님" /></div>
-                <div className="panel-sub mono">규칙 기반 근사식 · 실제 관능평가 패널 데이터 아님</div>
-              </div>
-            </div>
-            <SensoryRadar ings={ings} flavor={flavor} sensoryAxes={initial.sensoryAxes} />
-          </div>
-          </Reveal>
         </div>
       </div>
     </div>
@@ -389,61 +378,6 @@ function EffBar({ label, value, target }) {
         <div className="eff-bar-target"></div>
       </div>
       <div className="eff-target mono">TARGET · {target}</div>
-    </div>
-  );
-}
-
-// 관능 프로파일 예측 — 원료 투입량 기반 규칙(rule-based) 근사식.
-// 실제 관능평가 패널 데이터가 아니며, 각 계수는 시연을 위한 단순 선형 가정입니다.
-// (예: 감미료 함량이 많을수록 단맛·잔미 상승, 유단백이 많을수록 우유맛·이취 상승 등)
-function SensoryRadar({ ings, flavor, sensoryAxes }) {
-  const flavored = flavor && flavor !== "무향";
-  const clamp = (v) => Math.max(0, Math.min(100, v));
-  const attrs = sensoryAxes.map(axis => ({
-    label: axis.label,
-    value: clamp(sumParts(ings, axis.parts) + (flavored && axis.flavorBonus ? axis.flavorBonus : 0)),
-  }));
-  const cx = 130, cy = 130, r = 90;
-  const points = attrs.map((a, i) => {
-    const angle = (Math.PI * 2 * i) / attrs.length - Math.PI/2;
-    const rr = r * a.value / 100;
-    return { x: cx + Math.cos(angle) * rr, y: cy + Math.sin(angle) * rr, angle, a };
-  });
-  const path = points.map((p,i)=> `${i===0?"M":"L"}${p.x},${p.y}`).join(" ") + "Z";
-
-  return (
-    <div className="radar-wrap">
-      <svg viewBox="0 0 260 260" className="radar">
-        {[0.2, 0.4, 0.6, 0.8, 1].map((k,i)=>(
-          <polygon key={i}
-            points={attrs.map((_,i2)=>{
-              const angle = (Math.PI * 2 * i2) / attrs.length - Math.PI/2;
-              return `${cx + Math.cos(angle)*r*k},${cy + Math.sin(angle)*r*k}`;
-            }).join(" ")}
-            fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.15"/>
-        ))}
-        {attrs.map((_,i)=>{
-          const angle = (Math.PI * 2 * i) / attrs.length - Math.PI/2;
-          return <line key={i} x1={cx} y1={cy} x2={cx + Math.cos(angle)*r} y2={cy + Math.sin(angle)*r} stroke="currentColor" strokeWidth="0.5" opacity="0.2"/>;
-        })}
-        <path d={path} fill="url(#radar-grad)" stroke="var(--accent)" strokeWidth="1.4" opacity="0.9"/>
-        <defs>
-          <radialGradient id="radar-grad">
-            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.4"/>
-            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.05"/>
-          </radialGradient>
-        </defs>
-        {points.map((p,i)=>(
-          <g key={i}>
-            <circle cx={p.x} cy={p.y} r="3" fill="var(--accent)"/>
-            <text x={cx + Math.cos(p.angle)*(r+18)} y={cy + Math.sin(p.angle)*(r+18)}
-                  textAnchor="middle" dominantBaseline="middle"
-                  className="radar-label" fontSize="10">{p.a.label}</text>
-            <text x={cx + Math.cos(p.angle)*(r+32)} y={cy + Math.sin(p.angle)*(r+32) + 3}
-                  textAnchor="middle" className="radar-value mono" fontSize="9">{p.a.value}</text>
-          </g>
-        ))}
-      </svg>
     </div>
   );
 }

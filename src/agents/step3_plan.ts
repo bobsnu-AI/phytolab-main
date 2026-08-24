@@ -115,7 +115,7 @@ export const STEP3_TURN_PLAN: DiscussionTurn[] = [
     id: 13,
     agent: "rena",
     type: "consensus",
-    revealsSection: ["formula_table", "efficacy", "compliance", "sensory"],
+    revealsSection: ["formula_table", "efficacy", "compliance"],
     guidance: "5명 전원 승인으로 만장일치가 달성되었음을 짧게 선언하고, 다음 단계인 원가 시뮬레이션 진행을 알린다. 🎉 사용 가능.",
     fallbackMsg: "🎉 5/5 만장일치 · Step 4 진행",
   },

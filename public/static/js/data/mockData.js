@@ -225,15 +225,6 @@ window.PHYTO_DATA = {
       { label: "미량영양소 강화 (26종 프리믹스)", target: "비타민·미네랄 RDA 25% 이상",
         parts: [{ id: "vm", divisor: 1.2, weight: 100 }] },
     ],
-    // 관능 프로파일(SensoryRadar) 6축 — 동일한 parts 기반 범용 공식(weight는 음수로 감산 가능)
-    sensoryAxes: [
-      { label: "단맛", parts: [{ id: "iso", divisor: 40, weight: 35 }, { id: "sw", divisor: 1, weight: 65 }] },
-      { label: "커피/바닐라 향", parts: [{ id: "flav", divisor: 2, weight: 70 }], flavorBonus: 25 },
-      { label: "우유맛", parts: [{ ids: ["wpi", "cas"], divisor: 26, weight: 100 }] },
-      { label: "감미료 잔미", parts: [{ id: "sw", divisor: 1, weight: 100 }] },
-      { label: "점도·목넘김", parts: [{ ids: ["mufa", "mct", "emul"], divisor: 18.8, weight: 100 }] },
-      { label: "이취(콩·비린맛)", parts: [{ ids: ["wpi", "cas"], divisor: 26, weight: 55 }, { id: "flav", divisor: 2, weight: -25 }] },
-    ],
   },
 
   // Step 5: 원가 파라미터
