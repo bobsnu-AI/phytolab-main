@@ -43,8 +43,36 @@
     4: ["pricing", "cost_breakdown", "channel", "annual"],
   };
 
-  // ── 스텝별 완료 상태 캐시 ──────────────────────────────────────────────────
+  // ── 스텝별 완료 상태 캐시 (인메모리, 같은 페이지 세션 내에서만 유지) ──────────
   const _stepCache = new Map();
+
+  // ── 스텝 완료 게이트 (localStorage 영속, 새로고침해도 유지) ──────────────────
+  // "STEP N의 AI 논의(SSE)가 done 되기 전에는 STEP N+1이 열리면 안 된다"는
+  // 논리적 의존관계를 실제로 강제하기 위한 잠금 장치.
+  // AI 데이터 생성 플로우(PHYTO_DATA.generated===true)에서만 적용되고,
+  // 프리셋(당뇨 데모)·생성 실패 폴백 플로우는 SSE 자체가 없으므로 항상 unlocked.
+  const STEP_COMPLETION_KEY = "phytolab-step-completion";
+  function loadCompletedSteps() {
+    try { return JSON.parse(localStorage.getItem(STEP_COMPLETION_KEY)) || []; }
+    catch { return []; }
+  }
+  function markStepCompleted(step) {
+    const completed = loadCompletedSteps();
+    if (!completed.includes(step)) {
+      completed.push(step);
+      localStorage.setItem(STEP_COMPLETION_KEY, JSON.stringify(completed));
+    }
+  }
+  function resetStepCompletion() {
+    localStorage.removeItem(STEP_COMPLETION_KEY);
+  }
+  function isStepUnlocked(step) {
+    if (step <= 1) return true;
+    // AI 생성 데이터가 아니면(프리셋/폴백) 게이트 적용 안 함 — 기존 동작 유지
+    if (!window.PHYTO_DATA?.generated) return true;
+    return loadCompletedSteps().includes(step - 1);
+  }
+  window.StepGate = { isStepUnlocked, markStepCompleted, resetStepCompletion };
 
   function AgentStreamProvider({ step, children }) {
     const { path: endpoint, body: bodyStr } = buildStepBody(step);
@@ -150,6 +178,7 @@
                 setRevealed(new Set(localRevealed));
                 setStatus("done");
                 save(localTurns, new Set(localRevealed), "done");
+                markStepCompleted(step);
                 reader.cancel();
                 return;
               }
@@ -163,6 +192,7 @@
           setRevealed(new Set(localRevealed));
           setStatus(finalStatus);
           save(localTurns, new Set(localRevealed), finalStatus);
+          if (finalStatus === "done") markStepCompleted(step);
 
         } catch (err) {
           if (err?.name === "AbortError") return;   // 정상 취소
@@ -172,6 +202,7 @@
           setRevealed(new Set(localRevealed));
           setStatus(errStatus);
           save(localTurns, new Set(localRevealed), errStatus);
+          if (errStatus === "done") markStepCompleted(step);
         }
       })();
 

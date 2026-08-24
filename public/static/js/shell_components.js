@@ -79,11 +79,15 @@
         <ol className="stepnav-list">
           {STEPS.map((s, i, arr) => {
             const status = s.id < current ? "done" : s.id === current ? "active" : "pending";
+            const unlocked = window.StepGate?.isStepUnlocked(s.id) !== false;
             return (
-              <li key={s.id} className={`stepnav-item stepnav-${status}`} onClick={() => setCurrent(s.id)}>
+              <li key={s.id}
+                  className={`stepnav-item stepnav-${status} ${!unlocked ? "stepnav-locked" : ""}`}
+                  onClick={() => setCurrent(s.id)}
+                  title={!unlocked ? `STEP ${s.id - 1}의 AI 논의 완료 후 열립니다` : undefined}>
                 <div className="stepnav-rail">
                   <div className="stepnav-marker">
-                    {status === "done" ? "✓" : <span className="mono">{String(s.id).padStart(2, "0")}</span>}
+                    {status === "done" ? "✓" : !unlocked ? "🔒" : <span className="mono">{String(s.id).padStart(2, "0")}</span>}
                   </div>
                   {i < arr.length - 1 && <div className="stepnav-line"></div>}
                 </div>
@@ -497,10 +501,33 @@
     );
   }
 
+  // ============ Step Locked Notice ============
+  // 이전 단계의 AI 논의(SSE)가 done 되지 않은 상태에서 다음 단계로 진입 시도 시
+  // 실제 배합설계/원가시뮬 화면을 렌더링하지 않고 이 안내를 대신 표시한다.
+  // (StepNav 클릭 차단과는 별개의 방어선 — 직접 URL 조작·상태 불일치 등에도 안전)
+  function StepLockedNotice({ step, prevStep, onGoBack }) {
+    const prevInfo = STEPS[prevStep - 1];
+    const curInfo = STEPS[step - 1];
+    return (
+      <div className="step-locked-notice">
+        <div className="step-locked-icon">🔒</div>
+        <div className="step-locked-title">STEP {step} · {curInfo?.label}는 아직 열리지 않았습니다</div>
+        <div className="step-locked-desc">
+          STEP {prevStep} · {prevInfo?.label}의 AI 멀티에이전트 논의가 완료되어야<br />
+          그 결과(영양기준·원료·목표치 등)를 바탕으로 다음 단계가 진행됩니다.
+        </div>
+        <button className="step-locked-btn" onClick={onGoBack}>
+          ← STEP {prevStep}로 이동해 논의 완료하기
+        </button>
+      </div>
+    );
+  }
+
   window.Shell = { TitleBar, StepNav, STEPS };
   window.SourceTag = SourceTag;
   window.AgentRoster = AgentRoster;
   window.HandoffDiagram = HandoffDiagram;
   window.MultiAgentReasoning = MultiAgentReasoning;
   window.ConsensusMeter = ConsensusMeter;
+  window.StepLockedNotice = StepLockedNotice;
 })();

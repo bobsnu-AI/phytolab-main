@@ -2,17 +2,39 @@
 (function () {
   const { useState, useEffect } = React;
 
+  // 저장된/요청된 step이 아직 잠긴 상태(이전 단계 AI 논의 미완료)라면
+  // 순차적으로 unlocked인 마지막 단계까지만 허용 — STEP2를 건너뛰고
+  // STEP3·4로 곧바로 진입하는 것을 원천 차단.
+  function clampToUnlocked(requested) {
+    let s = 1;
+    for (let i = 2; i <= requested; i++) {
+      if (window.StepGate?.isStepUnlocked(i)) s = i; else break;
+    }
+    return s;
+  }
+
   function Workflow({ brief, onBackToBrief }) {
-    const [step, setStep] = useState(() => {
+    const [step, _setStep] = useState(() => {
       const saved = localStorage.getItem("phytolab-step");
-      return saved ? +saved : 1;
+      return clampToUnlocked(saved ? +saved : 1);
     });
     const [activeAgents, setActiveAgents] = useState([]);
     const [chatOpen, setChatOpen] = useState(true);
     const [mobileChatOpen, setMobileChatOpen] = useState(false);
+    const [lockToast, setLockToast] = useState(null);
 
     // live 상태 — MobileBottomNav 점 표시용
     const live = window.useAgentStream ? window.useAgentStream() : null;
+
+    // StepNav·모바일 네비 클릭을 이 함수로만 받는다 — 잠긴 단계로는 절대 이동 불가.
+    const setStep = (target) => {
+      if (window.StepGate?.isStepUnlocked(target)) {
+        _setStep(target);
+      } else {
+        setLockToast(`STEP ${target - 1}의 AI 논의가 완료되어야 STEP ${target}을 열 수 있습니다`);
+        setTimeout(() => setLockToast(null), 2600);
+      }
+    };
 
     useEffect(() => { localStorage.setItem("phytolab-step", String(step)); }, [step]);
 
@@ -72,10 +94,13 @@
             <div className="main-col">
               {step === 3 && <window.ConsensusMeter step={step} />}
               {step === 1 && <window.Step1Market />}
-              {step === 2 && <window.Step2Target />}
-              {step === 3 && <window.Step3Formula />}
-              {step === 4 && <window.Step4Cost />}
+              {step === 2 && (window.StepGate?.isStepUnlocked(2) !== false ? <window.Step2Target /> : <window.StepLockedNotice step={2} prevStep={1} onGoBack={() => setStep(1)} />)}
+              {step === 3 && (window.StepGate?.isStepUnlocked(3) !== false ? <window.Step3Formula /> : <window.StepLockedNotice step={3} prevStep={2} onGoBack={() => setStep(2)} />)}
+              {step === 4 && (window.StepGate?.isStepUnlocked(4) !== false ? <window.Step4Cost /> : <window.StepLockedNotice step={4} prevStep={3} onGoBack={() => setStep(3)} />)}
             </div>
+            {lockToast && (
+              <div className="step-lock-toast">🔒 {lockToast}</div>
+            )}
             <div className={`chat-panel-wrap ${chatOpen ? "open" : "closed"}`}>
               <button
                 type="button"
@@ -150,6 +175,11 @@
     });
 
     const handleLaunch = (sel) => {
+      // 새 브리프 시작 시 이전 세션의 단계 위치·완료 상태를 초기화.
+      // 이걸 안 하면 이전에 STEP3(배합설계)까지 갔던 사용자가 완전히 새 브리프를
+      // 생성해도 STEP1·STEP2를 건너뛰고 곧바로 STEP3로 진입하는 버그가 발생함.
+      localStorage.removeItem("phytolab-step");
+      window.StepGate?.resetStepCompletion();
       setBrief(sel);
       setScreen("workflow");
     };

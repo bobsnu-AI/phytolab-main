@@ -368,6 +368,10 @@ body::before {
   box-shadow: 0 0 0 4px oklch(from var(--accent) l c h / 0.15);
 }
 .stepnav-active .stepnav-label { color: var(--text-1); font-weight: 500; }
+.stepnav-locked { cursor: not-allowed; opacity: 0.55; }
+.stepnav-locked .stepnav-marker { background: var(--bg-2); color: var(--text-4); border-color: var(--line); }
+.stepnav-locked .stepnav-label { color: var(--text-4); }
+.stepnav-locked:hover .stepnav-label { color: var(--text-4); }
 
 .stepnav-footer {
   border-top: 1px solid var(--line);
@@ -510,6 +514,51 @@ body::before {
   border-radius: 4px;
   font-family: var(--font-mono);
 }
+
+/* ===== Step Locked Notice (이전 단계 AI 논의 미완료 시 표시) ===== */
+.step-locked-notice {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 12px;
+  max-width: 480px;
+  margin: 80px auto;
+  padding: 40px 32px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+}
+.step-locked-icon { font-size: 34px; opacity: 0.7; }
+.step-locked-title { font-size: 16px; font-weight: 600; color: var(--text-1); }
+.step-locked-desc { font-size: 13px; color: var(--text-3); line-height: 1.6; }
+.step-locked-btn {
+  margin-top: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--accent);
+  background: oklch(from var(--accent) l c h / 0.08);
+  color: var(--accent);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.step-locked-btn:hover { background: oklch(from var(--accent) l c h / 0.16); }
+
+/* ===== Step lock toast (StepNav/모바일 네비에서 잠긴 단계 클릭 시) ===== */
+.step-lock-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-0);
+  color: var(--text-1);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  padding: 10px 18px;
+  font-size: 12.5px;
+  box-shadow: 0 8px 30px -8px oklch(0 0 0 / 0.4);
+  z-index: 999;
+  animation: toastPop 0.2s ease-out;
+}
+@keyframes toastPop { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 /* ===== Step content shared ===== */
 .step-content { display: flex; flex-direction: column; gap: 20px; max-width: 1400px; }
@@ -2404,6 +2453,7 @@ body::before {
   }
   .mobile-nav-item.active        { color: var(--accent); background: oklch(from var(--accent) l c h / 0.08); }
   .mobile-nav-item:active        { background: oklch(from var(--accent) l c h / 0.14); }
+  .mobile-nav-item.locked        { opacity: 0.5; }
   .mobile-nav-icon               { font-size: 16px; line-height: 1; }
   .mobile-nav-label              { font-size: 9px; font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; line-height: 1; }
   .mobile-nav-dot                { position: absolute; top: 6px; right: calc(50% - 14px); width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }

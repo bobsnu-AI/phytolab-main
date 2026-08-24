@@ -35,22 +35,25 @@
 
     return (
       <nav className="mobile-bottom-nav" role="navigation" aria-label="하단 내비게이션">
-        {STEP_META.map((s) => (
-          <button
-            key={s.id}
-            className={`mobile-nav-item ${step === s.id ? "active" : ""}`}
-            onClick={() => setStep(s.id)}
-            aria-label={`${s.en} 단계로 이동`}
-            style={{ position: "relative" }}
-          >
-            <span className="mobile-nav-icon">{s.icon}</span>
-            <span className="mobile-nav-label">{s.label}</span>
-            {/* 현재 step이 live 진행 중이면 점 표시 */}
-            {step === s.id && isLive && (
-              <span className="mobile-nav-dot pulse" />
-            )}
-          </button>
-        ))}
+        {STEP_META.map((s) => {
+          const unlocked = window.StepGate?.isStepUnlocked(s.id) !== false;
+          return (
+            <button
+              key={s.id}
+              className={`mobile-nav-item ${step === s.id ? "active" : ""} ${!unlocked ? "locked" : ""}`}
+              onClick={() => setStep(s.id)}
+              aria-label={!unlocked ? `${s.en} 잠김 · 이전 단계 완료 필요` : `${s.en} 단계로 이동`}
+              style={{ position: "relative" }}
+            >
+              <span className="mobile-nav-icon">{!unlocked ? "🔒" : s.icon}</span>
+              <span className="mobile-nav-label">{s.label}</span>
+              {/* 현재 step이 live 진행 중이면 점 표시 */}
+              {step === s.id && isLive && (
+                <span className="mobile-nav-dot pulse" />
+              )}
+            </button>
+          );
+        })}
 
         {/* Chat Drawer 열기 버튼 */}
         <button
