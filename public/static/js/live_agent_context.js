@@ -32,12 +32,16 @@
     return { path, body: JSON.stringify({ dataset: picked }) };
   }
 
-  // Step1의 모든 섹션 ID — done/error 시 미reveal 섹션 자동 공개에 사용
-  const ALL_STEP1_SECTION_IDS = [
-    "context", "kpi", "segments", "channels", "positioning",
-    "matrix", "nutrition_compare", "naver_trend",
-    "reviews", "concept_pod", "conclusion",
-  ];
+  // 스텝별 모든 섹션 ID — done/error/스트림 조기종료 시 미reveal 섹션 자동 공개에 사용
+  // ※ 반드시 각 stepN_xxx.jsx의 <Reveal id="..."> 값과 일치해야 함
+  const ALL_STEP_SECTION_IDS = {
+    1: ["context", "kpi", "segments", "channels", "positioning",
+        "matrix", "nutrition_compare", "naver_trend",
+        "reviews", "concept_pod", "conclusion"],
+    2: ["papers", "nutrition", "ingredients"],
+    3: ["compliance", "formula_table", "efficacy", "sensory"],
+    4: ["pricing", "cost_breakdown", "channel", "annual"],
+  };
 
   // ── 스텝별 완료 상태 캐시 ──────────────────────────────────────────────────
   const _stepCache = new Map();
@@ -141,7 +145,7 @@
                 save(localTurns, new Set(localRevealed), localStatus);
 
               } else if (event === "done") {
-                ALL_STEP1_SECTION_IDS.forEach((id) => localRevealed.add(id));
+                (ALL_STEP_SECTION_IDS[step] || []).forEach((id) => localRevealed.add(id));
                 localStatus = "done";
                 setRevealed(new Set(localRevealed));
                 setStatus("done");
@@ -153,7 +157,7 @@
           }
 
           // 스트림 자연 종료 (done 이벤트 없이 끊긴 경우)
-          ALL_STEP1_SECTION_IDS.forEach((id) => localRevealed.add(id));
+          (ALL_STEP_SECTION_IDS[step] || []).forEach((id) => localRevealed.add(id));
           const finalStatus = (localStatus === "done" || localStatus === "streaming") ? "done" : "error";
           localStatus = finalStatus;
           setRevealed(new Set(localRevealed));
@@ -162,7 +166,7 @@
 
         } catch (err) {
           if (err?.name === "AbortError") return;   // 정상 취소
-          ALL_STEP1_SECTION_IDS.forEach((id) => localRevealed.add(id));
+          (ALL_STEP_SECTION_IDS[step] || []).forEach((id) => localRevealed.add(id));
           const errStatus = (localStatus === "done" || localStatus === "streaming") ? "done" : "error";
           localStatus = errStatus;
           setRevealed(new Set(localRevealed));

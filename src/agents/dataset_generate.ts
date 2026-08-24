@@ -334,10 +334,12 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
   // A1 + A2(competitors) + A2b(reviews) + A3(concept) 병합
   const a = { ...a1, ...a2, reviews: a2b, concept: (a3 as any).concept || undefined };
   // B1(ingredients+nutritionTarget) + B2(papers+nutritionCompare) 병합
+  // B1과 B2는 병렬 호출이라 한쪽만 실패할 수 있음 — papers 비어있으면 별도 표시
+  const b2PapersOk = Array.isArray(b2.papers) && b2.papers.length > 0;
   const b = {
     target: (b1.ingredients || b1.nutritionTarget)
       ? {
-          papersSearchNote: "AI 문헌 요약 기반",
+          papersSearchNote: b2PapersOk ? "AI 문헌 요약 기반" : "논문 검색 실패 · 잠시 후 재생성 필요",
           papers: b2.papers || [],
           ingredients: b1.ingredients || [],
           nutritionTarget: b1.nutritionTarget || {},

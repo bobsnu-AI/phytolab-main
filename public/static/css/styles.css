@@ -1478,6 +1478,10 @@ body::before {
   color: var(--text-3);
   margin-bottom: 10px;
 }
+.cp-header-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.cp-link-badge { letter-spacing: 0; font-size: 10.5px; padding: 2px 8px; border-radius: 999px; }
+.cp-link-badge.cp-link-ok { color: var(--success); background: oklch(from var(--success) l c h / 0.1); }
+.cp-link-badge.cp-link-warn { color: var(--warn); background: oklch(from var(--warn) l c h / 0.12); }
 .cp-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -1513,6 +1517,16 @@ body::before {
 .cp-fill-pass { background: var(--success); }
 .cp-fill-warn { background: var(--warn); }
 .cp-fill-fail { background: var(--danger); }
+.cp-target-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 9px;
+  line-height: 1;
+  color: var(--accent-2);
+  cursor: default;
+}
+.cp-target-note { margin-top: 5px; font-size: 9.5px; color: var(--accent-2); letter-spacing: 0.02em; }
 
 /* Step 4: Liquid pouch mock */
 .pouch {

@@ -113,7 +113,7 @@ const Step3Formula = () => {
         </div>
       </div>
 
-      {/* 영양기준 준수 상단 스트립 — productType 기반 동적 기준 */}
+      {/* 영양기준 준수 상단 스트립 — productType 기반 규제 기준(min/max) + STEP2 nutritionTarget(목표점) 동시 표시 */}
       {(() => {
         const productType = PHYTO_DATA.product?.productType || "";
         const reg = PHYTO_DATA.product?.regClass || PHYTO_DATA.product?.reg || "";
@@ -125,49 +125,73 @@ const Step3Formula = () => {
         const isSports = productType === "proteinbar" || productType === "proteinshake";
         // tea/soymilk/rawfood → 일반 식품 기준 (건강기능식품 아님)
 
+        // ── STEP2(영양기준설정)에서 생성된 실제 목표치 ──────────────────
+        // min/max는 "제품군 규제·표준제조기준"(법정/업계 범위, 하드코딩 유지가 맞음)이지만,
+        // 각 셀의 target(목표점)은 반드시 STEP2 nutritionTarget 값을 그대로 연동해야 함.
+        // STEP2가 아직 생성되지 않았거나 실패한 경우를 명시적으로 표시(하드코딩 fallback으로 조용히 넘어가지 않음).
+        const nt = PHYTO_DATA.target?.nutritionTarget;
+        const hasNutritionTarget = !!(nt && Object.keys(nt).length);
+        const ntCalories = nt?.calories?.value;
+        const ntCarb = nt?.carbRatio?.value;
+        const ntProtein = nt?.proteinRatio?.value;
+        const ntFat = nt?.fatRatio?.value;
+        const ntGi = nt?.giIndex?.value;
+        const ntSodium = nt?.sodium?.value;
+
         let headerLabel, compCells;
         if (isFsmp) {
           headerLabel = "FSMP 표준제조기준 준수도";
           compCells = (<>
-            <ComplianceCell label="열량 200±20 kcal" value={kcal} min={180} max={220} unit="kcal" />
-            <ComplianceCell label="탄수 45–50%en" value={carbPct} min={45} max={50} unit="%en" />
-            <ComplianceCell label="단백 18–22%en" value={proteinPct} min={18} max={22} unit="%en" />
-            <ComplianceCell label="지방 30–38%en" value={fatPct} min={30} max={38} unit="%en" />
-            <ComplianceCell label="GI ≤ 55 (저GI)" value={estimatedGi} min={0} max={55} unit="GI" inverse />
+            <ComplianceCell label="열량 200±20 kcal" value={kcal} min={180} max={220} unit="kcal" target={ntCalories} />
+            <ComplianceCell label="탄수 45–50%en" value={carbPct} min={45} max={50} unit="%en" target={ntCarb} />
+            <ComplianceCell label="단백 18–22%en" value={proteinPct} min={18} max={22} unit="%en" target={ntProtein} />
+            <ComplianceCell label="지방 30–38%en" value={fatPct} min={30} max={38} unit="%en" target={ntFat} />
+            <ComplianceCell label="GI ≤ 55 (저GI)" value={estimatedGi} min={0} max={55} unit="GI" inverse target={ntGi} />
           </>);
         } else if (isSenior) {
           headerLabel = "고령친화식품 기준 준수도";
           compCells = (<>
-            <ComplianceCell label="열량 ≥100 kcal/100g" value={kcal} min={100} max={400} unit="kcal" />
-            <ComplianceCell label="단백 ≥10%en" value={proteinPct} min={10} max={40} unit="%en" />
-            <ComplianceCell label="지방 ≤35%en" value={fatPct} min={0} max={35} unit="%en" inverse />
-            <ComplianceCell label="나트륨 ≤300mg" value={PHYTO_DATA.target?.nutritionTarget?.sodium?.value ?? 150} min={0} max={300} unit="mg" inverse />
-            <ComplianceCell label="GI ≤ 65" value={estimatedGi} min={0} max={65} unit="GI" inverse />
+            <ComplianceCell label="열량 ≥100 kcal/100g" value={kcal} min={100} max={400} unit="kcal" target={ntCalories} />
+            <ComplianceCell label="단백 ≥10%en" value={proteinPct} min={10} max={40} unit="%en" target={ntProtein} />
+            <ComplianceCell label="지방 ≤35%en" value={fatPct} min={0} max={35} unit="%en" inverse target={ntFat} />
+            <ComplianceCell label="나트륨 ≤300mg" value={ntSodium ?? 150} min={0} max={300} unit="mg" inverse target={ntSodium} />
+            <ComplianceCell label="GI ≤ 65" value={estimatedGi} min={0} max={65} unit="GI" inverse target={ntGi} />
           </>);
         } else if (isSports) {
           headerLabel = "스포츠 영양 기준 준수도";
           compCells = (<>
-            <ComplianceCell label="단백 ≥25%en" value={proteinPct} min={25} max={60} unit="%en" />
-            <ComplianceCell label="지방 ≤35%en" value={fatPct} min={0} max={35} unit="%en" inverse />
-            <ComplianceCell label="탄수 30–55%en" value={carbPct} min={30} max={55} unit="%en" />
-            <ComplianceCell label="열량 150–450 kcal" value={kcal} min={150} max={450} unit="kcal" />
-            <ComplianceCell label="GI ≤ 65" value={estimatedGi} min={0} max={65} unit="GI" inverse />
+            <ComplianceCell label="단백 ≥25%en" value={proteinPct} min={25} max={60} unit="%en" target={ntProtein} />
+            <ComplianceCell label="지방 ≤35%en" value={fatPct} min={0} max={35} unit="%en" inverse target={ntFat} />
+            <ComplianceCell label="탄수 30–55%en" value={carbPct} min={30} max={55} unit="%en" target={ntCarb} />
+            <ComplianceCell label="열량 150–450 kcal" value={kcal} min={150} max={450} unit="kcal" target={ntCalories} />
+            <ComplianceCell label="GI ≤ 65" value={estimatedGi} min={0} max={65} unit="GI" inverse target={ntGi} />
           </>);
         } else {
           // 일반 식품/라벨 제품 — 광범위 기준
           headerLabel = "영양기준 준수도";
           compCells = (<>
-            <ComplianceCell label="열량 100–500 kcal" value={kcal} min={100} max={500} unit="kcal" />
-            <ComplianceCell label="탄수 40–65%en" value={carbPct} min={40} max={65} unit="%en" />
-            <ComplianceCell label="단백 10–35%en" value={proteinPct} min={10} max={35} unit="%en" />
-            <ComplianceCell label="지방 ≤40%en" value={fatPct} min={0} max={40} unit="%en" inverse />
-            <ComplianceCell label="GI" value={estimatedGi} min={0} max={100} unit="GI" inverse />
+            <ComplianceCell label="열량 100–500 kcal" value={kcal} min={100} max={500} unit="kcal" target={ntCalories} />
+            <ComplianceCell label="탄수 40–65%en" value={carbPct} min={40} max={65} unit="%en" target={ntCarb} />
+            <ComplianceCell label="단백 10–35%en" value={proteinPct} min={10} max={35} unit="%en" target={ntProtein} />
+            <ComplianceCell label="지방 ≤40%en" value={fatPct} min={0} max={40} unit="%en" inverse target={ntFat} />
+            <ComplianceCell label="GI" value={estimatedGi} min={0} max={100} unit="GI" inverse target={ntGi} />
           </>);
         }
         return (
           <Reveal id="compliance" label="표준제조기준 준수도" agent="rega">
           <div className="compliance-strip">
-            <div className="cp-header mono">{headerLabel} · REALTIME</div>
+            <div className="cp-header mono cp-header-row">
+              <span>{headerLabel} · REALTIME</span>
+              {hasNutritionTarget ? (
+                <span className="cp-link-badge cp-link-ok" title="STEP2 영양기준설정에서 생성된 목표치가 아래 ◆ 마커로 표시됩니다">
+                  🔗 STEP2 영양기준 연동됨
+                </span>
+              ) : (
+                <span className="cp-link-badge cp-link-warn" title="STEP2에서 영양 목표치가 아직 생성되지 않아 제품군 표준 범위만 표시 중입니다">
+                  ⚠ STEP2 영양기준 미연동 · 표준 범위만 적용
+                </span>
+              )}
+            </div>
             <div className="cp-grid">
               {compCells}
             </div>
@@ -313,11 +337,17 @@ const Step3Formula = () => {
   );
 };
 
-function ComplianceCell({ label, value, min, max, unit, inverse }) {
+function ComplianceCell({ label, value, min, max, unit, inverse, target }) {
   const pass = inverse ? value <= max : (value >= min && value <= max);
   const nearMiss = !pass && (inverse ? value <= max*1.1 : (value >= min*0.9 && value <= max*1.1));
   const status = pass ? "pass" : nearMiss ? "warn" : "fail";
   const pct = Math.min(100, Math.max(0, inverse ? (1 - value/max)*100 : ((value - min)/(max - min))*100));
+
+  // STEP2 nutritionTarget 목표점 마커 — 규제 범위(min/max)와 별개로, AI가 실제 산출한 목표값을 트랙 위에 ◆로 표시
+  const hasTarget = typeof target === "number" && isFinite(target);
+  const targetPct = hasTarget
+    ? Math.min(100, Math.max(0, inverse ? (1 - target/max)*100 : ((target - min)/(max - min))*100))
+    : null;
 
   return (
     <div className={`cp-cell cp-${status}`}>
@@ -332,7 +362,13 @@ function ComplianceCell({ label, value, min, max, unit, inverse }) {
       <div className="cp-track">
         <div className={`cp-fill cp-fill-${status}`} style={{width: `${pct}%`}}></div>
         {!inverse && <><div className="cp-range-min" style={{left: `0%`}}></div><div className="cp-range-max" style={{left: `100%`}}></div></>}
+        {hasTarget && (
+          <div className="cp-target-marker" style={{left: `${targetPct}%`}} title={`STEP2 목표치 ${target}${unit}`}>◆</div>
+        )}
       </div>
+      {hasTarget && (
+        <div className="cp-target-note mono">STEP2 목표 {target}{unit}</div>
+      )}
     </div>
   );
 }
