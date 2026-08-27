@@ -676,7 +676,7 @@ body::before {
 .kpi-scale-range-fill { position: absolute; top: 0; height: 100%; background: linear-gradient(90deg, var(--accent-2), var(--accent)); border-radius: 2px; }
 
 /* ===== Channel grid ===== */
-.channel-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.channel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .channel-card {
   padding: 12px;
   background: var(--bg-2);
@@ -2358,7 +2358,7 @@ body::before {
   .naver-trend-grid  { grid-template-columns: 1fr !important; }
 
   .seg-grid         { grid-template-columns: 1fr 1fr !important; gap: 8px; }
-  .channel-grid     { grid-template-columns: 1fr 1fr !important; }
+  .channel-grid     { grid-template-columns: 1fr 1fr; }
   .formula-topbar   { grid-template-columns: 1fr !important; }
   .pos-map-wrap     { height: 220px; }
 
