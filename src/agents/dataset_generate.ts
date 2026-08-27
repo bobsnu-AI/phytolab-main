@@ -101,8 +101,8 @@ async function generatePartA1(env: LlmEnv, brief: ConfirmedBrief) {
 
 아래 스키마를 실제 값으로 채워 JSON 하나만 출력하세요.
 
-{"product":{"codename":"영문코드-1","tagline":"슬로건","target":"타깃","format":"제형+용량","category":"카테고리","subcategory":"세부","regClass":"고시번호","targetPrice":45000,"targetEvidenceStrength":8.2,"positioningSpec":"핵심스펙","positioningClaim":"클레임","positioningRating":4.3,"positioningChannel":"채널"},"market":{"headerTitle":"시장제목","headerDesc":"설명","domestic":{"size":3500,"unit":"억원","cagr":12,"year":2024,"cagrNote":"전망"},"global":{"size":15,"unit":"십억USD","cagr":8,"year":2025},"segments":[{"label":"S1","share":30,"growth":18,"hot":true},{"label":"S2","share":25,"growth":12,"hot":false},{"label":"S3","share":20,"growth":10,"hot":false},{"label":"S4","share":15,"growth":8,"hot":false},{"label":"S5","share":10,"growth":6,"hot":false}],"channels":[{"name":"C1","share":40,"cac":"낮음"},{"name":"C2","share":30,"cac":"중간"},{"name":"C3","share":20,"cac":"높음"},{"name":"C4","share":10,"cac":"중간"}]}}`;
-  return callJsonLlm(env, prompt, 700);
+{"product":{"codename":"영문코드-1","tagline":"슬로건","target":"타깃","format":"제형+용량","category":"카테고리","subcategory":"세부","regClass":"고시번호","targetPrice":45000,"targetEvidenceStrength":8.2,"positioningSpec":"핵심스펙","positioningClaim":"클레임","positioningRating":4.3,"positioningChannel":"채널"},"market":{"headerTitle":"시장제목","headerDesc":"설명","domestic":{"size":3500,"unit":"억원","cagr":12,"year":2024,"cagrNote":"전망"},"global":{"size":15,"unit":"십억USD","cagr":8,"year":2025},"channels":[{"name":"C1","share":40,"cac":"낮음"},{"name":"C2","share":30,"cac":"중간"},{"name":"C3","share":20,"cac":"높음"},{"name":"C4","share":10,"cac":"중간"}]}}`;
+  return callJsonLlm(env, prompt, 600);
 }
 
 // ---------- Call A2: competitors (브랜드·제형·스펙·클레임·가격·채널) ----------
@@ -242,14 +242,75 @@ ${guide.b1Example}`;
   return callJsonLlm(env, prompt, 900);
 }
 
-// ---------- Call B2: papers(×5) + nutritionCompare(×6) ----------
+// ---------- Call B2: papers(×5) ----------
+// nutritionCompare는 B1의 nutritionTarget에서 buildNutritionCompare()로 자동 생성하므로
+// B2는 논문 5개만 생성한다 (토큰 절감 + 오류 원인 제거).
 async function generatePartB2(env: LlmEnv, brief: ConfirmedBrief) {
   const prompt = `브리프: ${briefDescription(brief)}
 
-관련 임상 논문 5개와 영양 비교 지표 6개를 아래 스키마로 채워 JSON 하나만 출력하세요(가짜 PMID 금지, AI 요약 근거 사용).
+관련 임상 논문 5개를 아래 스키마로 채워 JSON 하나만 출력하세요(가짜 PMID 금지, AI 요약 근거 사용).
 
-{"papers":[{"title":"영문제목","journal":"저널","year":2022,"n":"n=120","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2021,"n":"n=80","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2020,"n":"n=60","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2023,"n":"n=150","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2019,"n":"n=90","effect":"결과","key":"핵심"}],"nutritionCompare":[{"label":"단백질(g)","our":12,"avg":8,"target":15,"max":20,"inverse":false},{"label":"칼로리(kcal)","our":200,"avg":250,"target":180,"max":300,"inverse":true},{"label":"GI지수","our":45,"avg":65,"target":40,"max":100,"inverse":true},{"label":"나트륨(mg)","our":150,"avg":200,"target":120,"max":300,"inverse":true},{"label":"류신(g)","our":2.4,"avg":1.2,"target":2.5,"max":4,"inverse":false},{"label":"비타민D(μg)","our":15,"avg":8,"target":20,"max":25,"inverse":false}]}`;
-  return callJsonLlm(env, prompt, 850);
+{"papers":[{"title":"영문제목","journal":"저널","year":2022,"n":"n=120","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2021,"n":"n=80","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2020,"n":"n=60","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2023,"n":"n=150","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2019,"n":"n=90","effect":"결과","key":"핵심"}]}`;
+  return callJsonLlm(env, prompt, 600);
+}
+
+// ---------- nutritionTarget → nutritionCompare 자동 변환 ----------
+// B1이 생성한 영양기준(nutritionTarget)을 STEP1 "주요 영양 조성 비교" 차트용 배열로 변환.
+// - our: 설계 목표값 (B1의 target value)
+// - avg: 경쟁 평균 (제품군별 합리적 추정치, UI 비교 기준점)
+// - target: 권고값 (동일하게 설계 목표값으로 표시)
+// - max: 차트 스케일 최대값
+// - inverse: 낮을수록 좋은 지표(나트륨, GI 등)
+function buildNutritionCompare(nutritionTarget: any): any[] {
+  if (!nutritionTarget || !Object.keys(nutritionTarget).length) return [];
+  const nt = nutritionTarget;
+  const result: any[] = [];
+
+  // 칼로리 (kcal)
+  const cal = nt.calories?.value;
+  if (typeof cal === "number") {
+    result.push({ label: "칼로리 (kcal)", our: cal, avg: Math.round(cal * 1.2), target: cal, max: Math.round(cal * 1.6), inverse: false });
+  }
+
+  // 단백질: proteinRatio%en → g (cal * ratio/100 / 4)
+  const proteinRatio = nt.proteinRatio?.value;
+  if (typeof cal === "number" && typeof proteinRatio === "number") {
+    const proteinG = Math.round((cal * proteinRatio / 100) / 4);
+    const avgProteinG = Math.max(1, Math.round(proteinG * 0.75));
+    result.push({ label: "단백질 (g)", our: proteinG, avg: avgProteinG, target: proteinG, max: Math.round(proteinG * 1.8), inverse: false });
+  }
+
+  // 탄수화물: carbRatio%en → g
+  const carbRatio = nt.carbRatio?.value;
+  if (typeof cal === "number" && typeof carbRatio === "number") {
+    const carbG = Math.round((cal * carbRatio / 100) / 4);
+    const avgCarbG = Math.round(carbG * 1.15);
+    result.push({ label: "탄수화물 (g)", our: carbG, avg: avgCarbG, target: carbG, max: Math.round(carbG * 1.5), inverse: false });
+  }
+
+  // 지방: fatRatio%en → g
+  const fatRatio = nt.fatRatio?.value;
+  if (typeof cal === "number" && typeof fatRatio === "number") {
+    const fatG = +((cal * fatRatio / 100) / 9).toFixed(1);
+    const avgFatG = +((fatG * 1.1)).toFixed(1);
+    result.push({ label: "지방 (g)", our: fatG, avg: avgFatG, target: fatG, max: +(fatG * 1.8).toFixed(1), inverse: false });
+  }
+
+  // GI 지수 (낮을수록 좋음)
+  const gi = nt.giIndex?.value;
+  if (typeof gi === "number") {
+    const avgGi = Math.round(gi * 1.4);
+    result.push({ label: "GI 지수", our: gi, avg: avgGi, target: gi, max: 100, inverse: true });
+  }
+
+  // 나트륨 (낮을수록 좋음)
+  const sodium = nt.sodium?.value;
+  if (typeof sodium === "number") {
+    const avgSodium = Math.round(sodium * 1.4);
+    result.push({ label: "나트륨 (mg)", our: sodium, avg: avgSodium, target: sodium, max: Math.round(sodium * 2.2), inverse: true });
+  }
+
+  return result;
 }
 
 // ---------- Call C: formula ingredients + cost ----------
@@ -366,8 +427,8 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
   ]);
   // A1 + A2(competitors) + A2b(reviews) + A3(concept) 병합
   const a = { ...a1, ...a2, reviews: a2b, concept: (a3 as any).concept || undefined };
-  // B1(ingredients+nutritionTarget) + B2(papers+nutritionCompare) 병합
-  // B1과 B2는 병렬 호출이라 한쪽만 실패할 수 있음 — papers 비어있으면 별도 표시
+  // B1(ingredients+nutritionTarget) + B2(papers) 병합
+  // nutritionCompare는 B1의 nutritionTarget에서 자동 생성(buildNutritionCompare) — LLM별도 호출 불필요
   const b2PapersOk = Array.isArray(b2.papers) && b2.papers.length > 0;
   const b = {
     target: (b1.ingredients || b1.nutritionTarget)
@@ -378,7 +439,8 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
           nutritionTarget: b1.nutritionTarget || {},
         }
       : null,
-    nutritionCompare: b2.nutritionCompare || [],
+    // B1의 nutritionTarget에서 직접 생성 — B2가 별도로 만들던 nutritionCompare 대체
+    nutritionCompare: buildNutritionCompare(b1.nutritionTarget || {}),
   };
   if (a1Err.length) console.error("[dataset_generate] LLM errors:", a1Err.join(" | "));
 
@@ -460,7 +522,7 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
         ? { sourceKey: "ai_generated", sourceLabel: "AI 생성 · 미검증", sourceNote: "AI 생성", sampleBadge: "AI 생성 예시", ...a.concept }
         : FALLBACK_CONCEPT,
     target: b.target ? { ...b.target, papers: (b.target.papers || []).map((p: any) => ({ ...p, sourceKey: "ai_generated" })), ingredients: (b.target.ingredients || []).map((i: any) => ({ ...i, sourceKey: "ai_generated" })) } : FALLBACK_TARGET,
-    nutritionCompare: Array.isArray(b.nutritionCompare) && b.nutritionCompare.length ? b.nutritionCompare : FALLBACK_NUTRITION_COMPARE,
+    nutritionCompare: b.nutritionCompare.length ? b.nutritionCompare : FALLBACK_NUTRITION_COMPARE,
     formula,
     cost: c.cost || FALLBACK_COST,
     generated: true,
@@ -478,7 +540,6 @@ const FALLBACK_MARKET = {
   headerTitle: "브리프 맞춤 시장", headerDesc: "데이터 생성 실패 · 기본값 표시 중",
   domestic: { size: 3000, unit: "억원", cagr: 10, year: 2024, cagrNote: "추정치" },
   global: { size: 10, unit: "십억USD", cagr: 6, year: 2025 },
-  segments: [{ label: "세그먼트 A", share: 30, growth: 12, hot: true }, { label: "세그먼트 B", share: 25, growth: 10 }, { label: "세그먼트 C", share: 20, growth: 8 }, { label: "세그먼트 D", share: 15, growth: 15, hot: true }, { label: "세그먼트 E", share: 10, growth: 6 }],
   channels: [{ name: "온라인 D2C", share: 40, cac: "중간" }, { name: "약국·H&B", share: 30, cac: "중간" }, { name: "병원", share: 20, cac: "낮음" }, { name: "마트", share: 10, cac: "높음" }],
   context: { prevalence: "타깃 인구 규모 데이터 로드 중", unmet: "시장 분석 데이터 준비 중", policy: "규제·정책 동향 준비 중" },
 };
@@ -504,7 +565,14 @@ const FALLBACK_TARGET = {
     giIndex: { value: 40, unit: "GI", note: "-" }, sodium: { value: 200, unit: "mg", note: "-" },
   },
 };
-const FALLBACK_NUTRITION_COMPARE = [{ label: "주요 성분 (g)", our: 10, avg: 8, target: 10, max: 15 }];
+const FALLBACK_NUTRITION_COMPARE = buildNutritionCompare({
+  calories:     { value: 200, unit: "kcal" },
+  proteinRatio: { value: 20, unit: "%en" },
+  carbRatio:    { value: 45, unit: "%en" },
+  fatRatio:     { value: 35, unit: "%en" },
+  giIndex:      { value: 55, unit: "GI" },
+  sodium:       { value: 180, unit: "mg" },
+});
 // 제품군별 폴백 원료 — AI Call C 실패 시 사용. 추상적 "기본 원료" 대신 실제 원료명 사용.
 const FALLBACK_INGREDIENTS_BY_TYPE: Record<string, any[]> = {
   fsmp: [

@@ -675,39 +675,6 @@ body::before {
 .kpi-scale-range { position: relative; }
 .kpi-scale-range-fill { position: absolute; top: 0; height: 100%; background: linear-gradient(90deg, var(--accent-2), var(--accent)); border-radius: 2px; }
 
-/* ===== Segment list ===== */
-.segment-list { display: flex; flex-direction: column; gap: 8px; }
-.segment-row {
-  display: grid;
-  grid-template-columns: 160px 1fr 80px;
-  gap: 12px;
-  align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px dashed var(--line);
-}
-.segment-row:last-child { border-bottom: none; }
-.segment-row.hot .segment-name { color: var(--text-1); }
-.segment-name { font-size: 12px; color: var(--text-2); }
-.segment-bar-wrap { position: relative; height: 20px; background: var(--bg-2); border-radius: 3px; }
-.segment-bar {
-  height: 100%;
-  background: linear-gradient(90deg, oklch(from var(--accent) l c h / 0.6), var(--accent));
-  border-radius: 3px;
-  transition: width 0.6s ease;
-}
-.segment-row:not(.hot) .segment-bar { background: var(--text-4); opacity: 0.6; }
-.segment-share {
-  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-  font-size: 11px; color: var(--text-1);
-}
-.segment-growth {
-  text-align: right;
-  font-size: 12px;
-  color: var(--text-3);
-}
-.segment-growth.up { color: var(--accent); }
-.segment-growth.up-strong { color: var(--accent); font-weight: 600; }
-
 /* ===== Channel grid ===== */
 .channel-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .channel-card {
@@ -1505,6 +1472,7 @@ body::before {
 .nc-dot.nc-us { background: var(--accent); }
 .nc-dot.nc-avg { background: oklch(from var(--text-3) l c h / 0.5); }
 .nc-dot.nc-target { background: var(--accent-2); border-radius: 50%; }
+.nc-empty { padding: 20px 0; text-align: center; color: var(--text-3); font-size: 12px; }
 
 /* Step 3: channel column in compare table */
 .ct-channel { font-size: 11px; color: var(--text-2); }

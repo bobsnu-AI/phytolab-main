@@ -20,21 +20,13 @@ window.PHYTO_DATA = {
 
   // Step 1: 시장조사
   // ※ 시장 규모(domestic/global)와 context.prevalence는 실제 공개 출처(sources.js 참조) 확인.
-  //   segments/channels는 공개 세그먼트 통계 부재로 Agent 추정치(agent_estimate)임을 명시.
+  //   channels는 공개 채널별 통계 부재로 Agent 추정치(agent_estimate)임을 명시.
   market: {
     headerTitle: "특수의료용도식품 · 당뇨환자용 시장",
     headerDesc: "급여화 논의·고령화·당뇨 유병률 상승 · 병원·요양시설 B2B 65% · 경쟁 SKU 벤치마킹 포함",
     domestic: { size: 6374, unit: "억원", cagr: 12.8, year: 2024, sourceKey: "rda_fsmp_market", cagrNote: "2024→2033 성장분 환산 (RDA 발표치 기반 역산)" },
     global: { size: 25.5, unit: "십억USD", cagr: 5.1, year: 2025, sourceKey: "medicalfoods_global" },
-    segmentsSourceKey: "agent_estimate",
     channelsSourceKey: "agent_estimate",
-    segments: [
-      { label: "당뇨환자용 영양조제식품", share: 34, growth: 16.2, hot: true },
-      { label: "고령친화 균형영양식", share: 26, growth: 18.4, hot: true },
-      { label: "암환자용 영양보충", share: 18, growth: 12.1 },
-      { label: "신장질환용 영양식", share: 12, growth: 8.7 },
-      { label: "연하곤란·점도조절식", share: 10, growth: 22.3, hot: true },
-    ],
     channels: [
       { name: "병원·의료기관", share: 38, cac: "낮음" },
       { name: "요양시설 B2B", share: 27, cac: "낮음" },

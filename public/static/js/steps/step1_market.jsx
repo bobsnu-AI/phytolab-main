@@ -121,63 +121,33 @@ const Step1Market = () => {
         </div>
       </Reveal>
 
-      <div className="two-col">
-        {/* 세그먼트 — MARA 발언으로 도출 */}
-        <Reveal id="segments" label="세그먼트별 점유율" agent="mara">
-          <div className="panel">
-            <div className="panel-header">
-              <div>
-                <div className="panel-title">FSMP 세그먼트별 점유율 & 성장률 <window.SourceTag id="agent_estimate" label="추정치" /></div>
-                <div className="panel-sub">공개 세그먼트 통계 부재 · Agent 추정 분해치</div>
-              </div>
-              <div className="panel-legend">
-                <span className="lg-item"><span className="lg-dot lg-dot-hot"></span>Hot Zone</span>
-                <span className="lg-item"><span className="lg-dot"></span>일반</span>
-              </div>
-            </div>
-            <div className="segment-list">
-              {d.segments.map((s, i) => (
-                <div key={i} className={`segment-row ${s.hot ? "hot" : ""}`}>
-                  <div className="segment-name">{s.label}</div>
-                  <div className="segment-bar-wrap">
-                    <div className="segment-bar" style={{width: `${(s.share/40)*100}%`}}></div>
-                    <span className="segment-share mono">{s.share}%</span>
-                  </div>
-                  <div className={`segment-growth mono ${s.growth > 15 ? "up-strong" : "up"}`}>+{s.growth}%</div>
-                </div>
-              ))}
+      {/* 유통 채널 — MARA 발언으로 도출 */}
+      <Reveal id="channels" label="유통 채널" agent="mara">
+        <div className="panel">
+          <div className="panel-header">
+            <div>
+              <div className="panel-title">주요 유통 채널 <window.SourceTag id="agent_estimate" label="추정치" /></div>
+              <div className="panel-sub">B2B 비중 우세 (공개 채널별 통계 부재 · Agent 추정)</div>
             </div>
           </div>
-        </Reveal>
-
-        {/* 유통 채널 — MARA 발언으로 도출 */}
-        <Reveal id="channels" label="유통 채널" agent="mara">
-          <div className="panel">
-            <div className="panel-header">
-              <div>
-                <div className="panel-title">주요 유통 채널 <window.SourceTag id="agent_estimate" label="추정치" /></div>
-                <div className="panel-sub">B2B 비중 우세 (공개 채널별 통계 부재 · Agent 추정)</div>
-              </div>
-            </div>
-            <div className="channel-grid">
-              {d.channels.map((c, i) => (
-                <div key={i} className="channel-card">
-                  <div className="channel-name">{c.name}</div>
-                  <div className="channel-share">
-                    <div className="channel-share-ring" style={{"--pct": `${c.share}%`}}>
-                      <span className="mono">{c.share}%</span>
-                    </div>
-                  </div>
-                  <div className="channel-cac">
-                    <span>CAC</span>
-                    <span className={`cac-tag cac-${c.cac === "낮음" ? "low" : c.cac === "중간" ? "mid" : "high"}`}>{c.cac}</span>
+          <div className="channel-grid">
+            {d.channels.map((c, i) => (
+              <div key={i} className="channel-card">
+                <div className="channel-name">{c.name}</div>
+                <div className="channel-share">
+                  <div className="channel-share-ring" style={{"--pct": `${c.share}%`}}>
+                    <span className="mono">{c.share}%</span>
                   </div>
                 </div>
-              ))}
-            </div>
+                <div className="channel-cac">
+                  <span>CAC</span>
+                  <span className={`cac-tag cac-${c.cac === "낮음" ? "low" : c.cac === "중간" ? "mid" : "high"}`}>{c.cac}</span>
+                </div>
+              </div>
+            ))}
           </div>
-        </Reveal>
-      </div>
+        </div>
+      </Reveal>
 
       <Reveal id="positioning" label="경쟁 포지셔닝 맵" agent="mara">
       <div className="panel">
@@ -280,20 +250,25 @@ const Step1Market = () => {
       </div>
       </Reveal>
 
-      {/* 영양 조성 비교 레이더 스타일 */}
+      {/* 영양 조성 비교 — our/avg/target/max 숫자 방어 코드 포함 */}
       <Reveal id="nutrition_compare" label="영양 조성 비교" agent="mara">
       <div className="panel">
         <div className="panel-header">
           <div>
             <div className="panel-title">주요 영양 조성 비교</div>
-            <div className="panel-sub">1식 기준 · KDA 대비</div>
+            <div className="panel-sub">1식 기준 · 경쟁 평균 대비</div>
           </div>
         </div>
         <div className="nutrition-compare">
-          {nutritionCompare.map((row, i) => {
-            const ourPct = row.inverse ? (1 - row.our/row.max)*100 : (row.our/row.max)*100;
-            const avgPct = row.inverse ? (1 - row.avg/row.max)*100 : (row.avg/row.max)*100;
-            const targetPct = row.inverse ? (1 - row.target/row.max)*100 : (row.target/row.max)*100;
+          {Array.isArray(nutritionCompare) && nutritionCompare.length > 0 ? nutritionCompare.map((row, i) => {
+            const our    = typeof row.our    === "number" ? row.our    : 0;
+            const avg    = typeof row.avg    === "number" ? row.avg    : 0;
+            const target = typeof row.target === "number" ? row.target : 0;
+            const max    = typeof row.max    === "number" && row.max > 0 ? row.max : Math.max(our, avg, target, 1) * 1.2;
+            const clamp  = (v) => Math.min(Math.max(v, 0), 100);
+            const ourPct    = clamp(row.inverse ? (1 - our   /max)*100 : (our   /max)*100);
+            const avgPct    = clamp(row.inverse ? (1 - avg   /max)*100 : (avg   /max)*100);
+            const targetPct = clamp(row.inverse ? (1 - target/max)*100 : (target/max)*100);
             return (
               <div key={i} className="nc-row">
                 <div className="nc-label">{row.label}</div>
@@ -305,17 +280,19 @@ const Step1Market = () => {
                   </div>
                 </div>
                 <div className="nc-values mono">
-                  <span className="nc-us">{row.our}</span>
+                  <span className="nc-us">{our}</span>
                   <span className="nc-sep">vs</span>
-                  <span className="nc-avg">{row.avg}</span>
+                  <span className="nc-avg">{avg}</span>
                 </div>
               </div>
             );
-          })}
+          }) : (
+            <div className="nc-empty mono">영양 비교 데이터를 생성하지 못했습니다</div>
+          )}
           <div className="nc-legend mono">
             <span><span className="nc-dot nc-us"></span>{product.codename}</span>
             <span><span className="nc-dot nc-avg"></span>경쟁 평균</span>
-            <span><span className="nc-dot nc-target"></span>KDA 권고</span>
+            <span><span className="nc-dot nc-target"></span>권고치</span>
           </div>
         </div>
       </div>

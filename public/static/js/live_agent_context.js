@@ -35,7 +35,7 @@
   // 스텝별 모든 섹션 ID — done/error/스트림 조기종료 시 미reveal 섹션 자동 공개에 사용
   // ※ 반드시 각 stepN_xxx.jsx의 <Reveal id="..."> 값과 일치해야 함
   const ALL_STEP_SECTION_IDS = {
-    1: ["context", "kpi", "segments", "channels", "positioning",
+    1: ["context", "kpi", "channels", "positioning",
         "matrix", "nutrition_compare", "naver_trend",
         "reviews", "concept_pod", "conclusion"],
     2: ["papers", "nutrition", "ingredients"],
