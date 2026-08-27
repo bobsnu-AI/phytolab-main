@@ -61,11 +61,33 @@ function resolveFormat(brief: ConfirmedBrief): string {
 
 function extractJson(text: string): any {
   let t = text.trim();
-  t = t.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  t = t.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
   const start = t.indexOf("{");
   const end = t.lastIndexOf("}");
-  if (start === -1 || end === -1 || end < start) throw new Error("JSON 형식 아님");
-  return JSON.parse(t.slice(start, end + 1));
+  if (start === -1) throw new Error("JSON 형식 아님");
+
+  // 완전한 JSON이면 바로 파싱
+  if (end !== -1 && end > start) {
+    try { return JSON.parse(t.slice(start, end + 1)); } catch (_) { /* fall through to repair */ }
+  }
+
+  // LLM 응답이 잘린 경우(truncated) — 닫힌 괄호를 채워 복구 시도
+  // 전략: 중첩 깊이를 추적해 부족한 } 개수만큼 append
+  let slice = end !== -1 ? t.slice(start, end + 1) : t.slice(start);
+  let depth = 0, inStr = false, escape = false;
+  for (let i = 0; i < slice.length; i++) {
+    const c = slice[i];
+    if (escape) { escape = false; continue; }
+    if (c === '\\' && inStr) { escape = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{') depth++;
+    else if (c === '}') depth--;
+  }
+  // 마지막 콤마 제거 후 닫기
+  slice = slice.trimEnd().replace(/,\s*$/, "");
+  const repaired = slice + "}".repeat(Math.max(0, depth));
+  return JSON.parse(repaired);
 }
 
 // CF Pages Worker 30초 제한 안에서 전체 LLM 콜이 완료되어야 함
@@ -239,19 +261,17 @@ ${guide.b1Guide}
 
 [출력 스키마 예시 — 실제 브리프 조건에 맞는 원료로 교체]
 ${guide.b1Example}`;
-  return callJsonLlm(env, prompt, 900);
+  return callJsonLlm(env, prompt, 1400);
 }
 
 // ---------- Call B2: papers(×5) ----------
-// nutritionCompare는 B1의 nutritionTarget에서 buildNutritionCompare()로 자동 생성하므로
-// B2는 논문 5개만 생성한다 (토큰 절감 + 오류 원인 제거).
 async function generatePartB2(env: LlmEnv, brief: ConfirmedBrief) {
   const prompt = `브리프: ${briefDescription(brief)}
 
 관련 임상 논문 5개를 아래 스키마로 채워 JSON 하나만 출력하세요(가짜 PMID 금지, AI 요약 근거 사용).
 
 {"papers":[{"title":"영문제목","journal":"저널","year":2022,"n":"n=120","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2021,"n":"n=80","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2020,"n":"n=60","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2023,"n":"n=150","effect":"결과","key":"핵심"},{"title":"영문제목","journal":"저널","year":2019,"n":"n=90","effect":"결과","key":"핵심"}]}`;
-  return callJsonLlm(env, prompt, 600);
+  return callJsonLlm(env, prompt, 800);
 }
 
 // ---------- nutritionTarget → nutritionCompare 자동 변환 ----------
