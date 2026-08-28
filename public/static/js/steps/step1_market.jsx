@@ -34,11 +34,26 @@ const Step1Market = () => {
   const [srcFilter, setSrcFilter] = React.useState("all"); // all | blog | news | cafe
 
   // 포지셔닝 맵: X = 가격, Y = 임상근거 강도
-  const ourStrength = product.targetEvidenceStrength;
-  const ourPrice = product.targetPrice;
-  const priceMin = 32000, priceMax = 60000;
-  const xPct = (p) => ((p - priceMin) / (priceMax - priceMin)) * 100;
-  const yPct = (s) => (1 - s/10) * 100;
+  // 가격 범위는 경쟁사 + 우리 제품 전체에서 동적 산출 (하드코딩 범위로 인한 이탈 방지)
+  const ourStrength = product.targetEvidenceStrength ?? 8.0;
+  const ourPrice = product.targetPrice ?? 45000;
+  const allPrices = [...(comps || []).map(c => c.price).filter(p => typeof p === "number"), ourPrice];
+  const allStrengths = [...(comps || []).map(c => c.evidenceStrength).filter(s => typeof s === "number"), ourStrength];
+  const rawPriceMin = Math.min(...allPrices);
+  const rawPriceMax = Math.max(...allPrices);
+  const rawStrMin   = Math.min(...allStrengths);
+  const rawStrMax   = Math.max(...allStrengths);
+  // 양 끝에 15% 여유를 줘서 노드가 맵 가장자리에 붙지 않게 함
+  const pricePad  = Math.max((rawPriceMax - rawPriceMin) * 0.15, 2000);
+  const strPad    = Math.max((rawStrMax   - rawStrMin)   * 0.15, 0.5);
+  const priceMin  = rawPriceMin - pricePad;
+  const priceMax  = rawPriceMax + pricePad;
+  const strMin    = Math.max(0, rawStrMin - strPad);
+  const strMax    = Math.min(10, rawStrMax + strPad);
+  const clampPct  = (v) => Math.min(Math.max(v, 2), 98);
+  const xPct = (p) => clampPct(((p - priceMin) / (priceMax - priceMin)) * 100);
+  const yPct = (s) => clampPct((1 - (s - strMin) / (strMax - strMin)) * 100);
+  const fmtPrice  = (p) => p >= 10000 ? `${(p/10000).toFixed(1)}만원` : `${p.toLocaleString()}원`;
 
   return (
     <div className="step-content">
@@ -174,7 +189,7 @@ const Step1Market = () => {
               <span className="mono">SWEET SPOT</span>
             </div>
             {comps.map((c, i) => (
-              <div key={i} className="pm-node" style={{left: `${xPct(c.price)}%`, top: `${yPct(c.evidenceStrength)}%`, "--sz": `${18 + Math.log(c.reviews)*3}px`}}>
+              <div key={i} className="pm-node" style={{left: `${xPct(c.price)}%`, top: `${yPct(c.evidenceStrength)}%`, "--sz": `${18 + Math.log(Math.max(c.reviews || 1, 1))*3}px`}}>
                 <div className="pm-node-dot"></div>
                 <div className="pm-node-label">{c.brand}</div>
               </div>
@@ -186,9 +201,9 @@ const Step1Market = () => {
             </div>
           </div>
           <div className="pm-axis pm-x">
-            <span className="mono">3.2만원</span>
-            <span className="mono pm-axis-label">가격 (24팩 박스) →</span>
-            <span className="mono">6.0만원</span>
+            <span className="mono">{fmtPrice(priceMin)}</span>
+            <span className="mono pm-axis-label">가격 →</span>
+            <span className="mono">{fmtPrice(priceMax)}</span>
           </div>
         </div>
       </div>
