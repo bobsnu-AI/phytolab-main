@@ -52,8 +52,8 @@ export const STEP2_TURN_PLAN: DiscussionTurn[] = [
     id: 4,
     agent: "rega",
     type: "flag",
-    guidance: "이 제품 카테고리에 해당하는 표준제조기준 또는 규제 기준 준수 필요성을 경고 형태로 짧게 언급한다. ⚠ 표시를 사용해도 좋다.",
-    fallbackMsg: "⚠ 해당 카테고리 표준제조기준 준수 필요",
+    guidance: "이 제품의 식품 유형(productType)에 정확히 대응하는 규제 기준만 경고 형태로 짧게 언급한다. ⚠ 표시를 사용해도 좋다. 주의: 일반식품(차류·두유류·생식류·프로틴바)은 식품공전 기준만 해당하며, 건강기능식품공전·개별인정형 심사자료 등 건강기능식품 규제를 일반식품에 적용하지 말 것.",
+    fallbackMsg: "⚠ 해당 식품 유형 표준제조기준 준수 필요 (FACTS의 productType 확인 요)",
   },
   {
     id: 5,

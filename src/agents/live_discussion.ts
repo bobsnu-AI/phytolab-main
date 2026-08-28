@@ -46,9 +46,20 @@ ${JSON.stringify(picked)}
 - 1~2문장, 한국어, 존댓말. 이모지 금지(REGA의 ⚠ 표시만 예외).`.trim();
 }
 
+// 제품 유형별 규제 FLAG 텍스트 — REGA agent가 flag 타입 발언에서 사용
+// 건강기능식품(개별인정형) 관련 경고는 해당 유형(fsmp·proteinshake)에만 적용
+const PRODUCT_TYPE_FLAG_TEXT: Record<string, string> = {
+  tea:          "⚠ 식품공전 차류 기준: 식품유형 '차류' 표시, 카페인·중금속 기준치 준수, 기능성 표방 문구 불가 (일반식품)",
+  soymilk:      "⚠ 식품공전 두유류 기준: 두유류 단백질·당류·지방 함량 기준, 표시 기준 준수 필요",
+  rawfood:      "⚠ 식품공전 생식류 기준: 생식류(곡류·채소 등 건조·분쇄) 위생·수분·이물 기준 준수, 기능성 표방 불가 (일반식품으로 건강기능식품공전 적용 없음)",
+  proteinbar:   "⚠ 식품공전 과자류 기준: 영양성분 표시(열량·단백·지방·당류) 의무, 기능성 표방 시 건강기능식품 별도 인허가 필요",
+  proteinshake: "⚠ 건강기능식품법 또는 식품공전: 제품 포지셔닝에 따라 일반식품 또는 건강기능식품 구분 필요 — 기능성 표방 시 건강기능식품 공전 기준 적용",
+  fsmp:         "⚠ 특수의료용도식품(FSMP) 표준제조기준: 식약처 고시 영양소 기준(탄수·단백·지방·GI), 의사·영양사 권고 표시 의무, 개별인정형 성분 사용 시 건강기능식품 공전 심사자료 추가 요건 적용",
+};
+
 // dataset이 있을 때 guidance를 dataset 컨텍스트 기반으로 동적 재작성
 // guidance 원문의 "당뇨", "GLUCARE-M" 등 고정 키워드 대신 실제 제품/건강이슈를 기반으로 발언하도록 지시
-function buildDynamicGuidance(guidance: string, dataset: any): string {
+function buildDynamicGuidance(guidance: string, dataset: any, turnType?: string): string {
   const product = dataset?.product;
   if (!product) return guidance;
 
@@ -56,6 +67,17 @@ function buildDynamicGuidance(guidance: string, dataset: any): string {
   const tagline = product.tagline || "";
   const target = product.target || "";
   const category = product.subcategory || product.category || "";
+  const productType = product.productType || "";
+
+  // flag 타입 발언: 제품 유형에 맞는 규제 텍스트를 guidance에 명시적으로 주입
+  // — LLM이 다른 제품 유형의 규제(특히 건강기능식품 개별인정형)를 잘못 인용하는 것을 방지
+  if (turnType === "flag" && productType && PRODUCT_TYPE_FLAG_TEXT[productType]) {
+    const flagText = PRODUCT_TYPE_FLAG_TEXT[productType];
+    return `[중요: 아래 FACTS의 실제 제품(${codename}, ${tagline})을 기준으로 발언할 것.]
+[규제 FLAG 지시: 이 제품의 식품 유형은 "${productType}"입니다. 반드시 아래 규제 텍스트만 기반으로 경고 발언을 생성하세요. 건강기능식품 개별인정형·건강기능식품공전 등 관련 없는 규제를 언급하지 마세요.]
+[정확한 규제 텍스트: ${flagText}]
+이 텍스트를 ⚠ FLAG 형식으로 간결하게 재작성하세요(1~2문장, 한국어 존댓말).`;
+  }
 
   // guidance에서 고정 제품명/카테고리 키워드를 실제 데이터셋 값으로 치환
   let dg = guidance
@@ -115,8 +137,9 @@ ${facts}`;
     let source: "live" | "fallback" = "live";
 
     // dataset이 있을 때: guidance를 dataset 기반으로 동적 재작성 (당뇨/GLUCARE-M 고정 키워드 제거)
+    // flag 타입은 제품 유형별 정확한 규제 텍스트를 주입 (잘못된 건강기능식품 규제 인용 방지)
     const effectiveGuidance = dataset && dynamic
-      ? buildDynamicGuidance(turn.guidance, dataset)
+      ? buildDynamicGuidance(turn.guidance, dataset, turn.type)
       : turn.guidance;
 
     try {
@@ -143,11 +166,17 @@ ${facts}`;
       if (!msg) throw new Error("empty response");
     } catch (err) {
       // fallbackMsg도 dataset이 있으면 제품명 치환
+      // flag 타입 + productType이 있으면 정확한 규제 텍스트를 fallback으로 사용
       if (dataset?.product?.codename) {
-        msg = turn.fallbackMsg
-          .replace(/GLUCARE-M/g, dataset.product.codename)
-          .replace(/당뇨환자용/g, dataset.product.subcategory || dataset.product.category || "")
-          .replace(/당뇨환자/g, dataset.product.target || "타깃 수요층");
+        const pt = dataset.product.productType || "";
+        if (turn.type === "flag" && pt && PRODUCT_TYPE_FLAG_TEXT[pt]) {
+          msg = PRODUCT_TYPE_FLAG_TEXT[pt];
+        } else {
+          msg = turn.fallbackMsg
+            .replace(/GLUCARE-M/g, dataset.product.codename)
+            .replace(/당뇨환자용/g, dataset.product.subcategory || dataset.product.category || "")
+            .replace(/당뇨환자/g, dataset.product.target || "타깃 수요층");
+        }
       } else {
         msg = turn.fallbackMsg;
       }
