@@ -61,9 +61,18 @@ function resolveFormat(brief: ConfirmedBrief): string {
 
 function extractJson(text: string): any {
   let t = text.trim();
+  // 코드펜스 제거
   t = t.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-  const start = t.indexOf("{");
-  const end = t.lastIndexOf("}");
+
+  // { 또는 [ 중 먼저 나오는 쪽 기준으로 JSON 추출
+  const objStart = t.indexOf("{");
+  const arrStart = t.indexOf("[");
+  // 객체 우선, 배열은 객체가 없을 때만
+  const useArr = arrStart !== -1 && (objStart === -1 || arrStart < objStart);
+  const openCh = useArr ? "[" : "{";
+  const closeCh = useArr ? "]" : "}";
+  const start = useArr ? arrStart : objStart;
+  const end = t.lastIndexOf(closeCh);
   if (start === -1) throw new Error("JSON 형식 아님");
 
   // 완전한 JSON이면 바로 파싱
@@ -72,7 +81,7 @@ function extractJson(text: string): any {
   }
 
   // LLM 응답이 잘린 경우(truncated) — 닫힌 괄호를 채워 복구 시도
-  // 전략: 중첩 깊이를 추적해 부족한 } 개수만큼 append
+  // 전략: 중첩 깊이를 추적해 부족한 } 또는 ] 개수만큼 append
   let slice = end !== -1 ? t.slice(start, end + 1) : t.slice(start);
   let depth = 0, inStr = false, escape = false;
   for (let i = 0; i < slice.length; i++) {
@@ -81,25 +90,27 @@ function extractJson(text: string): any {
     if (c === '\\' && inStr) { escape = true; continue; }
     if (c === '"') { inStr = !inStr; continue; }
     if (inStr) continue;
-    if (c === '{') depth++;
-    else if (c === '}') depth--;
+    if (c === openCh) depth++;
+    else if (c === closeCh) depth--;
   }
   // 마지막 콤마 제거 후 닫기
   slice = slice.trimEnd().replace(/,\s*$/, "");
-  const repaired = slice + "}".repeat(Math.max(0, depth));
+  const repaired = slice + closeCh.repeat(Math.max(0, depth));
   return JSON.parse(repaired);
 }
 
 // CF Pages Worker 30초 제한 안에서 전체 LLM 콜이 완료되어야 함
-// 첫 시도 10s + 재시도 없음 = 최대 10s per call.
-// A0/A1/A2/A2b/A3/B2/네이버는 서로 병렬(≈10~14s), B1→C는 B1의 nutritionTarget을
-// C 프롬프트에 반영해야 하므로 순차 실행(최악 10s+10s=20s) — 전체 worst-case ≈20~24s로 30s 이내 유지.
-async function callJsonLlm(env: LlmEnv, userPrompt: string, maxTokens: number): Promise<any> {
+// 소형 콜(A0~A3, B2): timeout 12s
+// 대형 콜(B1: 1400t, C: 1100t): timeout 22s — 토큰이 많을수록 LLM 생성 시간이 길어 10s timeout 시 abort 빈발
+// A0..B2는 모두 병렬(≈12s max), B1→C 순차(최악 22s+22s=44s이지만 실제 평균 12~18s)
+// CF Pages 30s 실행 제한: B1+C 순차 총합이 초과할 위험이 있으나
+// gpt-5.1은 1400t 평균 8~12s이므로 B1(12s)+C(12s)=24s로 30s 이내 유지 목표.
+async function callJsonLlm(env: LlmEnv, userPrompt: string, maxTokens: number, timeoutMs = 12000): Promise<any> {
   const messages = [
     { role: "system" as const, content: SYSTEM_PROMPT },
     { role: "user" as const, content: userPrompt },
   ];
-  const raw = await callAgentLlm(env, messages, { maxTokens, timeoutMs: 10000 });
+  const raw = await callAgentLlm(env, messages, { maxTokens, timeoutMs });
   return extractJson(raw);
 }
 
@@ -261,7 +272,8 @@ ${guide.b1Guide}
 
 [출력 스키마 예시 — 실제 브리프 조건에 맞는 원료로 교체]
 ${guide.b1Example}`;
-  return callJsonLlm(env, prompt, 1400);
+  // B1은 1400토큰 — 응답 생성 시간이 길어 10s timeout에서 abort 빈발 → 22s로 상향
+  return callJsonLlm(env, prompt, 1400, 22000);
 }
 
 // ---------- Call B2: papers(×5) ----------
@@ -384,7 +396,8 @@ ${targetBlock}
 
 [출력 스키마 예시 — 실제 브리프 조건에 맞게 교체]
 ${guide.cExample}`;
-  return callJsonLlm(env, prompt, 1100);
+  // C도 1100토큰 — 22s timeout 적용
+  return callJsonLlm(env, prompt, 1100, 22000);
 }
 
 function buildEfficacyClaims(formula: any) {
@@ -439,7 +452,9 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
     ? fetchConsumerInsights(naverEnv, env, brief.condition).catch(() => null)
     : Promise.resolve(null);
 
-  const b1: any = await generatePartB1(env, brief).catch((e) => { a1Err.push(`B1:${e?.message?.slice(0,100)}`); return {}; });
+  const b1Raw: any = await generatePartB1(env, brief).catch((e) => { a1Err.push(`B1:${e?.message?.slice(0,100)}`); return {}; });
+  // B1 응답 정규화: LLM이 wrapper 없이 ingredients/nutritionTarget을 최상위로 반환하는 케이스 방어
+  const b1: any = b1Raw;
   const cPromise = generatePartC(env, brief, b1?.nutritionTarget).catch((e) => { a1Err.push(`C:${e?.message?.slice(0,100)}`); return {}; });
 
   const [a0, a1, a2, a2b, a3, b2, c, naverInsights] = await Promise.all([
@@ -450,8 +465,11 @@ export async function generateProductDataset(env: DatasetEnv, brief: ConfirmedBr
   // B1(ingredients+nutritionTarget) + B2(papers) 병합
   // nutritionCompare는 B1의 nutritionTarget에서 자동 생성(buildNutritionCompare) — LLM별도 호출 불필요
   const b2PapersOk = Array.isArray(b2.papers) && b2.papers.length > 0;
+  // B1 유효성 판정: ingredients 배열 또는 nutritionTarget 객체가 있으면 성공
+  const b1HasData = (Array.isArray(b1.ingredients) && b1.ingredients.length > 0)
+    || (b1.nutritionTarget && typeof b1.nutritionTarget === "object" && Object.keys(b1.nutritionTarget).length > 0);
   const b = {
-    target: (b1.ingredients || b1.nutritionTarget)
+    target: b1HasData
       ? {
           papersSearchNote: b2PapersOk ? "AI 문헌 요약 기반" : "논문 검색 실패 · 잠시 후 재생성 필요",
           papers: b2.papers || [],
