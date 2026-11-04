@@ -17,7 +17,7 @@
   // 서버 SSE 라우트가 body.dataset에서 픽업하는 최상위 키들 (src/agents/routes.ts의 datasetKeys와 동일해야 함)
   const STEP_DATASET_KEYS = {
     1: ["product", "market", "competitors", "reviews", "concept"],
-    2: ["product", "target", "nutritionCompare"],
+    2: ["product", "target", "nutritionCompare", "kgEvidence"],
     3: ["product", "formula"],
     4: ["product", "cost", "formula"],
   };
@@ -28,6 +28,11 @@
     if (!window.PHYTO_DATA?.generated) return { path, body: null };
     const picked = {};
     (STEP_DATASET_KEYS[step] || []).forEach(k => { picked[k] = window.PHYTO_DATA[k]; });
+    // 지식그래프 근거(GraphRAG): kg_core.json이 로드돼 있으면 브리프·원료 후보 기준 서브그래프 요약을 FACTS에 동봉.
+    // 아직 로드 전이면 생략 — 서버는 기존 데이터셋만으로 정상 동작.
+    if ((STEP_DATASET_KEYS[step] || []).includes("kgEvidence") && window.PhytoKG?.isReady()) {
+      try { picked.kgEvidence = window.PhytoKG.factsFor(window.PHYTO_DATA) || undefined; } catch (e) { console.warn("[PhytoKG] factsFor failed", e); }
+    }
     // POST body: { dataset: { product, market, ... } }
     return { path, body: JSON.stringify({ dataset: picked }) };
   }

@@ -60,7 +60,7 @@ export const STEP2_TURN_PLAN: DiscussionTurn[] = [
     agent: "clio",
     type: "acknowledge",
     revealsSection: "ingredients",
-    guidance: "FACTS의 후보 원료들의 근거등급을 요약하고, 관련 가이드라인에서 비권고 또는 주의가 필요한 성분에 대한 임상적 주의를 함께 밝힌다.",
+    guidance: "FACTS의 후보 원료들의 근거등급을 요약하고, 관련 가이드라인에서 비권고 또는 주의가 필요한 성분에 대한 임상적 주의를 함께 밝힌다. FACTS에 kgEvidence가 있으면 지식그래프 근거를 1건 이상 인용한다: approvedIngredients의 식약처 인정 기능성·지표성분·일일섭취량·주의대상(제도 정보)과 researchEvidence의 '소재-효능 연구 n건(연도)'(문헌 코퍼스)을 구분해 말하고, PMID는 미확인이므로 절대 지어내지 않는다.",
     fallbackMsg: "후보 원료 근거등급 확정 · 일부 성분 가이드라인 비권고 주의 필요",
   },
   {

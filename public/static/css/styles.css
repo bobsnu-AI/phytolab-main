@@ -2540,3 +2540,43 @@ body::before {
   .brief-summary-scores        { grid-template-columns: repeat(2, 1fr) !important; }
   .brief-main                  { padding: 0 14px 90px !important; overflow-x: hidden; }
 }
+
+/* ============ 지식그래프 근거 (STAGE 02 · KgGraphSection) ============ */
+.kg-wrap { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr); gap: 14px; margin-top: 10px; }
+@media (max-width: 900px) { .kg-wrap { grid-template-columns: 1fr; } }
+.kg-canvas { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; }
+.kg-svg { width: 100%; height: auto; display: block; }
+.kg-edge { stroke: var(--line-strong); stroke-width: 1; opacity: 0.7; }
+.kg-edge-inferred { stroke-dasharray: 3 3; opacity: 0.55; }
+.kg-edge-hot { stroke: var(--accent); stroke-width: 1.6; opacity: 1; }
+.kg-node { cursor: pointer; outline: none; }
+.kg-node circle { stroke: var(--bg-1); stroke-width: 1.5; transition: r 0.12s; }
+.kg-node:hover circle, .kg-node:focus circle { stroke: var(--text-1); }
+.kg-node-sel circle { stroke: var(--text-1); stroke-width: 2.5; }
+.kg-node-dim circle { opacity: 0.35; }
+.kg-label { font-size: 9px; fill: var(--text-2); pointer-events: none; font-family: var(--font-sans); }
+.kg-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 6px; font-size: 10px; color: var(--text-3); }
+.kg-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.kg-legend-item i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.kg-legend-dash { border-top: 1px dashed var(--text-3); height: 0 !important; width: 14px !important; border-radius: 0 !important; }
+.kg-detail { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; font-size: 12px; color: var(--text-2); max-height: 480px; overflow: auto; }
+.kg-detail-title { font-size: 14px; font-weight: 700; color: var(--text-1); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kg-kind { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--bg-3); color: var(--text-3); font-weight: 400; }
+.kg-detail-src { font-size: 10px; color: var(--text-4); margin: 4px 0 10px; }
+.kg-dl { display: grid; grid-template-columns: 72px 1fr; gap: 6px 10px; margin: 0; }
+.kg-dl dt { color: var(--text-4); font-size: 11px; } .kg-dl dd { margin: 0; }
+.kg-pre { white-space: pre-wrap; line-height: 1.45; }
+.kg-clamp { max-height: 7.2em; overflow: hidden; }
+.kg-clamp:hover { max-height: none; }
+.kg-hint { font-size: 12px; color: var(--text-3); padding: 10px 2px; }
+.kg-status { font-size: 12px; padding: 6px 8px; border-radius: 4px; margin-bottom: 8px; background: var(--bg-3); }
+.kg-status-evidence { color: var(--success); } .kg-status-none { color: var(--warn); } .kg-status-unlinked { color: var(--text-3); }
+.kg-table { width: 100%; border-collapse: collapse; } .kg-table td { padding: 4px 6px; border-top: 1px solid var(--line); vertical-align: top; }
+.kg-btn { font: inherit; font-size: 11px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line-strong); background: var(--bg-3); color: var(--text-1); cursor: pointer; }
+.kg-btn:disabled { opacity: 0.4; cursor: default; }
+.kg-studies { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+.kg-studies-head { font-size: 10px; color: var(--text-3); margin-bottom: 6px; }
+.kg-pmid-tag { color: var(--warn); }
+.kg-study { padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.kg-study-title { color: var(--text-1); font-size: 12px; line-height: 1.4; }
+.kg-study-meta { font-size: 10.5px; color: var(--text-3); margin-top: 2px; }

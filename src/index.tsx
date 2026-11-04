@@ -49,6 +49,8 @@ app.get('/', (c) => {
 <script src="/static/js/data/nutrient_db.js?v=20260819a" defer></script>
 
 <script src="/static/js/react_globals.js?v=20260819a"></script>
+<!-- 지식그래프(dietkg) 클라이언트: STAGE 02 그래프 섹션 + 에이전트 FACTS 주입. 로드 시 kg_core.json 백그라운드 선로드 -->
+<script src="/static/js/kg_context.js?v=20261105a"></script>
 
 <!-- ④ Babel JSX 파일 -->
 <script type="text/babel" src="/static/js/formula_context.js?v=20260819b"></script>
